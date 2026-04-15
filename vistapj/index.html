@@ -1,0 +1,4322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>VISTA — Image Library + AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f7fb;
+      color: #333;
+      margin: 0;
+      padding: 24px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 32px;
+      letter-spacing: 1px;
+    }
+
+    .view-toggle {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    .view-toggle button {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: rgba(255, 255, 255, 0.9);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .view-toggle button.active {
+      background: #0f172a;
+      color: #f8fafc;
+      border-color: #0f172a;
+    }
+
+    .weather {
+      position: fixed;
+      inset: 0;
+      border-radius: 0;
+      border: none;
+      overflow: hidden;
+      min-height: 100vh;
+      box-shadow: none;
+      z-index: 1;
+    }
+
+    .weather::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.12);
+      pointer-events: none;
+    }
+
+    .weather-day::after {
+      background: linear-gradient(
+        to top,
+        rgba(0,0,0,0.45),
+        rgba(0,0,0,0.15),
+        rgba(0,0,0,0.05)
+      );
+    }
+
+    .weather-night::after {
+      background: linear-gradient(
+        to top,
+        rgba(0,0,0,0.65),
+        rgba(0,0,0,0.35),
+        rgba(0,0,0,0.2)
+      );
+    }
+
+    .weather-bg {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      transform: scale(1.01);
+    }
+
+    .weather-bg-layer {
+      position: absolute;
+      inset: 0;
+      background-size: cover;
+      background-position: center;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+      animation: slowZoom 18s ease-in-out infinite;
+    }
+
+    .weather-bg-layer.is-active {
+      opacity: 1;
+    }
+
+    .weather-bg {
+      transition: filter 0.35s ease;
+    }
+
+    body.is-active .weather-bg {
+      filter: blur(4px) brightness(0.8);
+    }
+
+    .gallery-active .weather-bg {
+      filter: blur(4px) brightness(0.7);
+      transition: filter 0.3s ease;
+    }
+
+    .gallery-active .weather-content {
+      opacity: 0.6;
+      transition: opacity 0.3s ease;
+    }
+
+    @keyframes slowZoom {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .weather-content {
+      position: absolute;
+      bottom: 10%;
+      left: 6%;
+      z-index: 2;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: left;
+      max-width: 420px;
+      background: transparent;
+      backdrop-filter: none;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      text-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    }
+
+    .weather-title {
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      opacity: 0.8;
+    }
+
+    .weather-temp {
+      font-size: 84px;
+      font-weight: 600;
+      line-height: 1;
+      animation: fadeUp 0.6s ease forwards;
+    }
+
+    .weather-city {
+      font-size: 22px;
+      font-weight: 500;
+      opacity: 0.9;
+    }
+
+    .weather-desc {
+      font-size: 15px;
+      opacity: 0.7;
+      text-transform: capitalize;
+    }
+
+    .weather-extra {
+      margin-top: 10px;
+      display: flex;
+      gap: 16px;
+      font-size: 13px;
+      opacity: 0.8;
+      flex-wrap: wrap;
+    }
+
+    .weather-source {
+      position: absolute;
+      right: 18px;
+      bottom: 18px;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      border: none;
+      color: #f8fafc;
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      z-index: 3;
+      opacity: 0.7;
+    }
+
+    @media (max-width: 640px) {
+      .weather-content {
+        bottom: 14%;
+        left: 6%;
+        max-width: 320px;
+      }
+    }
+
+    .view-hidden {
+      display: none;
+    }
+
+    .app-view {
+      position: relative;
+      z-index: 2;
+    }
+
+    .bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      margin: 10px auto 18px;
+    }
+
+    .control-panels {
+      width: 90%;
+      max-width: 1000px;
+      margin: 10px auto 18px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+      text-align: left;
+      display: grid;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .panel-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .panel-row input {
+      flex: 1;
+      min-width: 220px;
+    }
+
+    input, select, button {
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid #d0d7e2;
+      font-size: 14px;
+      background: #fff;
+      outline: none;
+    }
+
+    input {
+      min-width: 230px;
+    }
+
+    select {
+      min-width: 150px;
+    }
+
+    #ai-count {
+      min-width: 70px;
+      max-width: 80px;
+      text-align: center;
+    }
+
+    button {
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    }
+
+    button.primary {
+      background-color: #007bff;
+      color: white;
+      border-color: #007bff;
+      box-shadow: 0 4px 10px rgba(0, 123, 255, 0.25);
+    }
+
+    button.primary:hover {
+      background-color: #0056b3;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 14px rgba(0, 123, 255, 0.35);
+    }
+
+    #status {
+      min-height: 22px;
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    #gallery {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 520px;
+      margin: 10px auto 10px;
+      width: 90%;
+      max-width: 1000px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    #gallery img {
+      position: absolute;
+      max-width: 92%;
+      max-height: 92%;
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+      opacity: 0;
+      transition: opacity 0.8s ease-in-out;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      object-fit: contain;
+      will-change: opacity, transform, filter;
+    }
+
+    #gallery img.active {
+      opacity: 1;
+      animation: galleryReveal 0.6s ease;
+    }
+
+    @keyframes galleryReveal {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.98);
+        filter: blur(6px);
+      }
+      100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+        filter: blur(0);
+      }
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #e2e8f0;
+      border-top: 4px solid #007bff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0); }
+      to   { transform: rotate(360deg); }
+    }
+
+    .presenter-activity {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      color: #e2e8f0;
+      font-size: 12px;
+      letter-spacing: 0.3px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-6px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 10000;
+    }
+
+    .presenter-activity.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .presenter-activity-spinner {
+      display: inline-flex;
+      gap: 4px;
+    }
+
+    .presenter-activity-spinner span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #38bdf8;
+      animation: activityBounce 1s infinite ease-in-out;
+      opacity: 0.5;
+    }
+
+    .presenter-activity-spinner span:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    .presenter-activity-spinner span:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    @keyframes activityBounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    .catalog-wrapper {
+      max-width: 640px;
+      margin: 10px auto 18px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #e9edf7;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+      overflow-x: auto;
+    }
+
+    .catalog {
+      display: flex;
+      gap: 6px;
+      padding: 2px;
+      min-width: max-content;
+      justify-content: center;
+    }
+
+    .catalog-btn {
+      min-width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 999px;
+      border: 1px solid #c3cce5;
+      background: white;
+      font-size: 13px;
+      color: #475569;
+    }
+
+    .catalog-btn.active {
+      background: #007bff;
+      border-color: #007bff;
+      color: white;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.3);
+    }
+
+    .ctrls {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .ctrl-btn {
+      padding: 10px 20px;
+      border-radius: 999px;
+      border: none;
+      font-size: 14px;
+      color: white;
+      background: #2563eb;
+    }
+
+    .ctrl-btn.secondary {
+      background: #64748b;
+    }
+
+    .ctrl-btn.danger {
+      background: #e11d48;
+    }
+
+    .settings {
+      width: 90%;
+      max-width: 1000px;
+      margin: 10px auto 12px;
+      padding: 12px 14px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+      text-align: left;
+      display: grid;
+      gap: 10px;
+    }
+
+    .settings-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .settings-table {
+      display: grid;
+      gap: 12px;
+    }
+
+    .settings-row {
+      display: grid;
+      grid-template-columns: 110px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .settings-label {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .settings-control {
+      min-width: 0;
+    }
+
+    .settings-control select {
+      width: 100%;
+    }
+
+    .settings-control input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    .settings-actions .settings-action {
+      flex: none;
+    }
+
+    .agent-fab {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 999;
+      display: grid;
+      gap: 10px;
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.2s ease;
+      pointer-events: auto;
+    }
+
+    .agent-bubble {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.85);
+      color: #f8fafc;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
+      backdrop-filter: blur(8px);
+      animation: bubbleFloat 6s ease-in-out infinite;
+    }
+
+    .agent-bubble {
+      cursor: grab;
+    }
+
+    .agent-bubble:active {
+      cursor: grabbing;
+    }
+
+    .agent-fab.dragging .agent-bubble {
+      animation: none;
+    }
+
+    @keyframes bubbleFloat {
+      0% { transform: translate3d(0, 0, 0); }
+      50% { transform: translate3d(-6px, -8px, 0); }
+      100% { transform: translate3d(0, 0, 0); }
+    }
+
+    .agent-panel {
+      width: min(420px, calc(100vw - 32px));
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
+      padding: 16px 18px;
+      display: grid;
+      grid-template-rows: minmax(120px, 1fr) auto auto;
+      gap: 10px;
+      overflow: hidden;
+      color: #e2e8f0;
+      max-height: 0;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: max-height 0.4s ease, opacity 0.3s ease, transform 0.3s ease;
+      position: absolute;
+      right: 0;
+      bottom: 62px;
+    }
+
+    .agent-panel::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -12px;
+      width: 100%;
+      height: 12px;
+    }
+
+    .agent-fab.open .agent-panel,
+    .agent-fab:hover .agent-panel,
+    .agent-fab:focus-within .agent-panel {
+      max-height: 360px;
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+
+    .agent-log {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 10px;
+      min-height: 120px;
+      max-height: 260px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: grid;
+      gap: 8px;
+      color: #e2e8f0;
+    }
+
+    .agent-msg {
+      display: grid;
+      gap: 2px;
+      font-size: 13px;
+      color: #e2e8f0;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .agent-msg strong {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: rgba(226, 232, 240, 0.7);
+    }
+
+    .agent-input {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .agent-input input {
+      flex: 1;
+      min-width: 220px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #f8fafc;
+    }
+
+    .agent-input input::placeholder {
+      color: rgba(248, 250, 252, 0.6);
+    }
+
+    .agent-voice {
+      min-width: 70px;
+      padding: 8px 10px;
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .agent-voice.active {
+      background: #0ea5e9;
+      color: #fff;
+      border-color: #0ea5e9;
+    }
+
+    .agent-status {
+      font-size: 12px;
+      color: rgba(226, 232, 240, 0.7);
+      text-align: right;
+    }
+
+    .agent-heard {
+      font-size: 12px;
+      color: #0ea5e9;
+      text-align: right;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .agent-heard.visible {
+      opacity: 1;
+    }
+
+    .agent-fab.right .agent-panel {
+      align-self: end;
+    }
+
+    .agent-fab.left .agent-panel {
+      align-self: start;
+    }
+
+    .history {
+      padding: 14px 16px;
+      text-align: left;
+    }
+
+    .history-clear {
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+
+    .history-card-head {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .history-keyword {
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .history-meta {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .history-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .history-empty {
+      color: #94a3b8;
+      font-size: 13px;
+      padding: 8px 2px;
+    }
+
+    .session {
+      padding: 14px 16px;
+      text-align: left;
+      display: grid;
+      gap: 12px;
+    }
+
+    .session-title {
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .session-grid {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .session-qr {
+      width: 140px;
+      height: 140px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: white;
+      object-fit: cover;
+    }
+
+    .session-meta {
+      display: grid;
+      gap: 6px;
+      font-size: 14px;
+      color: #475569;
+    }
+
+    .session-code {
+      font-weight: 700;
+      color: #2563eb;
+    }
+
+    .session-link a {
+      color: #1d4ed8;
+      word-break: break-all;
+    }
+
+    @media (max-width: 640px) {
+      .session-grid {
+        grid-template-columns: 1fr;
+      }
+      .session-qr {
+        width: 120px;
+        height: 120px;
+      }
+    }
+    /* Diffusion-style reveal animation */
+@keyframes diffusionReveal {
+  0% {
+    filter: blur(30px) brightness(0.6) contrast(0.8);
+    opacity: 0.2;
+  }
+  40% {
+    filter: blur(18px) brightness(0.8) contrast(0.9);
+    opacity: 0.6;
+  }
+  80% {
+    filter: blur(8px) brightness(1) contrast(1);
+    opacity: 0.95;
+  }
+  100% {
+    filter: blur(0px) brightness(1) contrast(1);
+    opacity: 1;
+  }
+}
+
+#unsplash-preview.animate {
+  animation: diffusionReveal 1.6s ease-out forwards;
+}
+
+    /* =============================
+         AI Loading Overlay
+    ============================== */
+    #ai-loading {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.92);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 30px;
+      z-index: 99999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+
+    #ai-loading.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sketch {
+      width: 150px;
+      height: 150px;
+      background: url('sketch.svg') no-repeat center;
+      background-size: contain;
+      opacity: 0.8;
+      animation: sketchPulse 1.8s ease-in-out infinite;
+      filter: invert(1);
+    }
+
+    @keyframes sketchPulse {
+      0% { opacity: 0.2; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.05); }
+      100% { opacity: 0.2; transform: scale(0.9); }
+    }
+
+    #unsplash-preview {
+      width: 360px;
+      height: 280px;
+      object-fit: cover;
+      opacity: 0;
+      filter: blur(14px);
+      border-radius: 14px;
+      transition: opacity 1s, filter 1.6s;
+    }
+
+    :root {
+      --bg-1: #1c1c1e;
+      --bg-2: #0f0f11;
+      --card: rgba(255, 255, 255, 0.04);
+      --card-strong: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.06);
+      --text: #f5f5f7;
+      --muted: rgba(245, 245, 247, 0.6);
+      --accent: #0a84ff;
+      --accent-shadow: 0 6px 20px rgba(10, 132, 255, 0.35);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+      background: radial-gradient(
+        circle at 30% 20%,
+        var(--bg-1),
+        var(--bg-2) 60%
+      );
+      color: var(--text);
+      padding: 0;
+      text-align: left;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .layer {
+      position: fixed;
+      inset: 0;
+    }
+
+    .layer-bg {
+      z-index: 1;
+    }
+
+    .active-dim {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.22);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+      z-index: 2;
+    }
+
+    .layer-info {
+      z-index: 3;
+      pointer-events: none;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .weather-content,
+    .weather-source {
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .layer-ui {
+      z-index: 4;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+      position: relative;
+      inset: auto;
+      min-height: 100vh;
+    }
+
+    body.is-active .layer-ui {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    body.is-active .active-dim {
+      opacity: 1;
+      pointer-events: none;
+    }
+
+    body.is-active .layer-info {
+      opacity: 0.15;
+      transform: translateY(10px) scale(0.98);
+    }
+
+    body.is-active .weather-content,
+    body.is-active .weather-source {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+
+    h1 {
+      font-weight: 600;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 28px;
+      background: rgba(15, 15, 17, 0.6);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-8px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    body.is-active .topbar {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .sidebar-toggle {
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      padding: 8px 14px;
+      font-size: 12px;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .sidebar-toggle:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .view-toggle {
+      display: none;
+    }
+
+    .app-view {
+      padding-bottom: 120px;
+    }
+
+    .search-dock {
+      position: fixed;
+      left: 0;
+      top: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 7;
+    }
+
+    .search-bubble {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(15, 23, 42, 0.7);
+      color: var(--text);
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(12px);
+    }
+
+    .search-dock.dragging .search-bubble {
+      cursor: grabbing;
+    }
+
+    .search-bubble {
+      cursor: grab;
+    }
+
+    .search-card {
+      position: absolute;
+      left: 56px;
+      top: 0;
+      max-height: 0;
+      opacity: 0;
+      transform: translateX(-12px);
+      pointer-events: none;
+      transition: max-height 0.4s ease, opacity 0.35s ease, transform 0.35s ease;
+      overflow: hidden;
+      border-radius: 24px;
+    }
+
+    .search-card::before {
+      content: "";
+      position: absolute;
+      left: -12px;
+      top: 0;
+      width: 12px;
+      height: 100%;
+    }
+
+    .search-dock:hover .search-card,
+    .search-dock:focus-within .search-card {
+      max-height: 140px;
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    .search-dock.dragging .search-card {
+      pointer-events: none;
+      max-height: 0;
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+
+    .search-dock .command-row {
+      grid-template-columns: 1fr repeat(4, auto);
+    }
+
+    .app-shell {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 32px 28px 80px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 32px;
+      align-items: start;
+    }
+
+    .glass-panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      backdrop-filter: blur(20px);
+      padding: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    }
+
+    .command-panel {
+      display: grid;
+      gap: 16px;
+    }
+
+    .app-main {
+      display: grid;
+      gap: 14px;
+    }
+
+    .app-side {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 360px;
+      height: 100vh;
+      padding: 92px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
+      z-index: 8;
+    }
+
+    .app-side * {
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .sidebar-shell {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 16px;
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+    }
+
+    .sidebar-shell .glass-panel {
+      box-shadow: none;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-header {
+      display: grid;
+      gap: 6px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sidebar-title {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .sidebar-scroll {
+      flex: none;
+      overflow: visible;
+      display: grid;
+      gap: 12px;
+      padding-right: 4px;
+    }
+
+    .sidebar-footer {
+      display: grid;
+      gap: 16px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      overflow-x: hidden;
+    }
+
+    .sidebar-collapsed .app-shell {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sidebar-collapsed .app-side {
+      display: none;
+    }
+
+
+    .panel-title {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .command-row {
+      display: grid;
+      grid-template-columns: 1fr repeat(4, auto);
+      gap: 12px;
+      align-items: center;
+    }
+
+    .command-refine {
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      font-weight: 500;
+      padding: 10px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .command-refine:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .command-panel input,
+    .command-panel select {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .command-panel .primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-weight: 500;
+      padding: 10px 20px;
+      box-shadow: var(--accent-shadow);
+      transition: all 0.2s ease;
+    }
+
+    .command-panel .primary:hover {
+      transform: translateY(-1px);
+    }
+
+    .legacy-panels {
+      display: none;
+    }
+
+    .status-text {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: left;
+    }
+
+    #status {
+      color: var(--muted);
+    }
+
+    .gallery-shell {
+      position: relative;
+      display: grid;
+      gap: 20px;
+      padding-bottom: 48px;
+      justify-items: center;
+    }
+
+    #gallery {
+      width: 100%;
+      max-width: 820px;
+      height: 480px;
+      margin: 0;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.25);
+    }
+
+    #gallery img {
+      max-width: 94%;
+      max-height: 94%;
+      border-radius: 20px;
+      box-shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
+      object-fit: contain;
+      will-change: opacity, transform, filter;
+    }
+
+    #gallery img.active {
+      animation: galleryReveal 0.6s ease;
+    }
+
+    #gallery.cover img {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: cover;
+    }
+
+    .gallery-source {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      border: none;
+      color: #f8fafc;
+      font-size: 12px;
+      letter-spacing: 0.2px;
+      z-index: 2;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .gallery-source.visible {
+      opacity: 1;
+    }
+
+    .gallery-loader {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .gallery-loader.visible {
+      opacity: 1;
+    }
+
+    .ctrls.toolbar {
+      position: absolute;
+      left: 50%;
+      bottom: 8px;
+      transform: translateX(-50%);
+      display: inline-flex;
+      gap: 12px;
+      padding: 10px 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+    }
+
+    .ctrls .ctrl-btn {
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      padding: 8px 12px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .ctrls .ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .ctrls .ctrl-btn.danger {
+      color: #ff453a;
+      border-color: rgba(255, 69, 58, 0.4);
+    }
+
+    .history {
+      margin: 0;
+    }
+
+    .history-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .history-card {
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .history-keyword {
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+
+    .history-meta {
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.2px;
+      overflow-wrap: anywhere;
+    }
+
+    .history-restore {
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-weight: 500;
+      justify-self: start;
+    }
+
+    .catalog-wrapper {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: none;
+    }
+
+    .catalog-btn {
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+    }
+
+    .catalog-btn.active {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    .session {
+      margin: 0;
+    }
+
+    .session-title {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .session-qr {
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .session-meta {
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+
+    .session-code {
+      color: var(--accent);
+    }
+
+    .session-link a {
+      color: var(--accent-2);
+    }
+
+    .settings-title,
+    .settings-label,
+    .refine-actions input {
+      color: var(--text);
+    }
+
+    .refine-actions input,
+    .settings-control select,
+    .settings-control input {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      color: var(--text);
+    }
+
+    .settings-action {
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .presenter-activity {
+      background: rgba(15, 15, 17, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    .fade-up {
+      opacity: 0;
+      transform: translateY(4px);
+      animation: fadeUp 0.4s ease forwards;
+    }
+
+    @keyframes fadeUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 900px) {
+      .command-row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .topbar-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .app-shell {
+        padding: 32px 20px 100px;
+        grid-template-columns: 1fr;
+      }
+
+      .app-side {
+        position: static;
+        width: auto;
+        max-height: none;
+      }
+
+      #gallery {
+        height: 420px;
+      }
+
+      .ctrls.toolbar {
+        position: static;
+        transform: none;
+        justify-content: space-between;
+      }
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <div class="layer layer-bg">
+    <section class="weather" id="weather-view">
+      <div class="weather-bg">
+        <div class="weather-bg-layer is-active" id="weather-bg-a"></div>
+        <div class="weather-bg-layer" id="weather-bg-b"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="active-dim" id="active-dim"></div>
+
+  <div class="layer layer-info">
+    <div class="weather-content">
+      <div class="weather-title">Local weather wallpaper</div>
+      <div class="weather-hero">
+        <div class="weather-temp" id="weather-temp">--°</div>
+        <div class="weather-city" id="weather-city">Locating...</div>
+        <div class="weather-desc" id="weather-desc">—</div>
+      </div>
+      <div class="weather-extra">
+        <span id="weather-humidity">Humidity —</span>
+        <span id="weather-wind">Wind —</span>
+        <span id="weather-time">Updated —</span>
+      </div>
+    </div>
+    <div class="weather-source" id="weather-source">Source: Unsplash</div>
+  </div>
+
+  <div class="layer layer-ui">
+    <header class="topbar">
+      <div class="brand">VISTA</div>
+      <div class="topbar-actions">
+        <button class="sidebar-toggle" id="sidebar-toggle" type="button" aria-pressed="false">Settings</button>
+      </div>
+    </header>
+
+    <div id="presenter-activity" class="presenter-activity" aria-live="polite">
+      <div class="presenter-activity-spinner" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <div id="presenter-activity-text">Working...</div>
+    </div>
+
+    <div class="search-dock" id="search-dock">
+      <button class="search-bubble" type="button" aria-label="Open search">V</button>
+      <div class="search-card">
+        <section class="command-panel glass-panel">
+          <div class="panel-title">Search or generate</div>
+          <div class="command-row">
+            <input id="unified-prompt" type="text" placeholder="Search or generate..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+            <select id="unified-mode">
+              <option value="search" selected>Search</option>
+              <option value="generate">Generate</option>
+            </select>
+            <select id="unified-ratio">
+              <option value="1:1" selected>1:1</option>
+              <option value="4:3">4:3</option>
+              <option value="16:9">16:9</option>
+              <option value="3:4">3:4</option>
+              <option value="9:16">9:16</option>
+            </select>
+            <button class="primary" id="unified-submit">Go</button>
+            <button class="command-refine" id="refine-quick" type="button">Refine</button>
+          </div>
+          <div id="refine-status" class="status-text"></div>
+        </section>
+      </div>
+    </div>
+
+    <div id="app-view" class="app-view">
+    <div class="app-shell">
+      <div class="app-main">
+        <div class="control-panels legacy-panels">
+      <div class="panel">
+        <div class="panel-title">Search library</div>
+        <div class="panel-row">
+          <input id="search-keyword" type="text" placeholder="Search keyword (e.g. dog, future city)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+          <select id="mode" onchange="onModeChange()">
+            <option value="multi" selected>Multi</option>
+            <option value="unsplash">Unsplash</option>
+            <option value="pexels">Pexels</option>
+            <option value="pixabay">Pixabay</option>
+          </select>
+          <select id="library-ratio">
+            <option value="1:1" selected>1:1</option>
+            <option value="4:3">4:3</option>
+            <option value="16:9">16:9</option>
+            <option value="3:4">3:4</option>
+            <option value="9:16">9:16</option>
+          </select>
+          <button class="primary" onclick="searchLibrary()">Search</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">AI generate (Flux)</div>
+        <div class="panel-row">
+          <input id="ai-prompt" type="text" placeholder="Describe what to generate..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+          <select id="ai-count">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+          <select id="ai-size">
+            <option value="1:1" selected>1:1</option>
+            <option value="4:3">4:3</option>
+            <option value="16:9">16:9</option>
+            <option value="3:4">3:4</option>
+            <option value="9:16">9:16</option>
+          </select>
+          <button class="primary" onclick="generateAi()">Generate</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="status" class="status-text"></div>
+
+    <section class="gallery-shell fade-up">
+      <div id="gallery">
+        <p>Try searching or generating!</p>
+        <div id="gallery-source" class="gallery-source"></div>
+      </div>
+      <div class="ctrls toolbar">
+        <button class="ctrl-btn" onclick="startSlideshow()">▶︎</button>
+        <button class="ctrl-btn" onclick="stopSlideshow()">⏸</button>
+        <button class="ctrl-btn" onclick="toggleFullscreen()">⛶</button>
+        <button class="ctrl-btn" onclick="downloadCurrent()">↓</button>
+        <button class="ctrl-btn secondary" id="btn-idle">Idle</button>
+        <button class="ctrl-btn danger" onclick="clearGallery()">✕</button>
+      </div>
+      <div id="gallery-loader" class="gallery-loader">Loading more...</div>
+    </section>
+
+    <div class="catalog-wrapper" id="catalog-wrapper" style="display:none;">
+      <div class="catalog" id="catalog"></div>
+    </div>
+  </div>
+  </div>
+
+  <aside class="app-side">
+    <div class="sidebar-shell">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Result history</div>
+        <button class="history-clear" onclick="clearHistory()">Clear history</button>
+      </div>
+
+      <div class="sidebar-scroll">
+        <div class="history glass-panel fade-up" id="history">
+          <div class="history-grid" id="history-grid"></div>
+        </div>
+      </div>
+
+    <div class="sidebar-footer">
+      <div class="settings glass-panel fade-up" id="settings">
+        <div class="settings-title">Playback settings</div>
+        <div class="settings-table">
+          <div class="settings-row">
+            <span class="settings-label">Speed</span>
+            <div class="settings-control">
+              <select id="speed-select">
+            <option value="2000">Fast (2s)</option>
+            <option value="3000" selected>Normal (3s)</option>
+            <option value="5000">Slow (5s)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-label">Voice max</span>
+            <div class="settings-control">
+              <select id="voice-max">
+                <option value="6000">6s</option>
+                <option value="8000">8s</option>
+                <option value="10000">10s</option>
+                <option value="12000" selected>12s</option>
+                <option value="15000">15s</option>
+                <option value="20000">20s</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-label">Load</span>
+            <div class="settings-control">
+              <select id="load-limit">
+            <option value="20">20</option>
+            <option value="40" selected>40</option>
+            <option value="80">80</option>
+            <option value="120">120</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-label">Fit</span>
+            <div class="settings-control">
+              <select id="fit-select">
+            <option value="contain" selected>Contain</option>
+            <option value="cover">Cover</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-label">Autoplay</span>
+            <div class="settings-control">
+              <input id="autoplay-toggle" type="checkbox" />
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <span class="settings-label">Actions</span>
+            <div class="settings-control">
+              <div class="settings-actions">
+                <button class="settings-action" id="ui-reset" type="button">Reset UI</button>
+                <button class="settings-action" id="ui-refresh" type="button">Refresh</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+        <div class="session glass-panel fade-up" id="sessionBox">
+          <div class="session-title">Remote control</div>
+          <div class="session-grid">
+            <img class="session-qr" id="session-qr" alt="QR code" />
+            <div class="session-meta">
+              <div>Scan the QR code to open the phone remote.</div>
+              <div>Short code: <span class="session-code" id="session-code">—</span></div>
+              <div class="session-link"><a id="session-link" href="#" target="_blank">—</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+  </div>
+
+  <div class="agent-fab right" id="agent-fab">
+    <button class="agent-bubble" id="agent-bubble">AI</button>
+    <div class="agent-panel" id="agent-panel">
+      <div class="agent-log" id="agent-log"></div>
+      <div class="agent-input">
+        <button class="secondary agent-voice" id="agent-mic" type="button">Mic</button>
+        <button class="secondary agent-voice" id="agent-wake" type="button">Wake</button>
+        <input id="agent-input" type="text" placeholder="Ask the agent to search, generate, or refine..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+        <button class="primary" id="agent-send">Send</button>
+      </div>
+      <div class="agent-heard" id="agent-heard">Heard: hey vista</div>
+      <div class="agent-status" id="agent-status">Ready.</div>
+    </div>
+  </div>
+
+  <!-- AI Loading Overlay -->
+  <div id="ai-loading">
+    <div class="sketch"></div>
+    <p id="loading-text">Creating your image...</p>
+    <img id="unsplash-preview" />
+  </div>
+  
+
+<script>
+  /* =====================================================
+             FORCE DOWNLOAD (UNSPLASH/PEXELS/LEXICA)
+===================================================== */
+async function forceDownload(url, filename) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch (err) {
+    console.error("Download failed:", err);
+    alert("Failed to download image.");
+  }
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    hideAILoading();
+  }
+});
+
+
+/* =====================================================
+             AI LOADING + UNSPLASH PREVIEW
+===================================================== */
+let previewTimer = null;
+
+function showAILoading(keyword) {
+  document.getElementById("ai-loading").classList.add("visible");
+  startUnsplashPreview(keyword);
+}
+
+function hideAILoading() {
+  document.getElementById("ai-loading").classList.remove("visible");
+  clearInterval(previewTimer);
+}
+
+async function startUnsplashPreview(keyword) {
+  const imgBox = document.getElementById("unsplash-preview");
+
+  try {
+    const r = await fetch(
+      `${API_BASE}/api/unsplash?q=${encodeURIComponent(keyword)}&page=1`
+    );
+    const data = await r.json();
+    const images = data.images || [];
+    if (!images.length) return;
+
+    let index = 0;
+
+    // 显示第一张
+    imgBox.classList.remove("animate");
+    void imgBox.offsetWidth;
+    imgBox.src = images[0];
+    imgBox.classList.add("animate");
+
+    // 每 1.5 秒切一张并执行 diffusion reveal
+    previewTimer = setInterval(() => {
+      index = (index + 1) % images.length;
+
+      imgBox.classList.remove("animate");
+      void imgBox.offsetWidth;
+
+      imgBox.src = images[index];
+      imgBox.classList.add("animate");
+    }, 4000);
+
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+/* =====================================================
+             YOUR ORIGINAL LOGIC BELOW
+===================================================== */
+const DEFAULT_API_BASE = (() => {
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1" || window.location.protocol === "file:") {
+    return "http://localhost:3000";
+  }
+  return "https://vista-backend-1-6r3t.onrender.com";
+})();
+const API_BASE =
+  new URLSearchParams(window.location.search).get("apiBase") ||
+  localStorage.getItem("vista_api_base") ||
+  DEFAULT_API_BASE;
+const FRONTEND_BASE =
+  new URLSearchParams(window.location.search).get("frontendBase") ||
+  localStorage.getItem("vista_frontend_base") ||
+  "https://1195898560zyy-del.github.io/vistapj";
+const WEATHER_CACHE_KEY = "vista_weather_cache_v1";
+const WEATHER_TTL = 10 * 60 * 1000;
+const WEATHER_ROTATE_MS = 12000;
+
+let slideIndex = 0;
+let slideTimer = null;
+let slideInterval = 3000;
+let isPlaying = false;
+
+let currentKeyword = "";
+let currentPage = 1;
+let totalPages = 1;
+let searchState = null;
+let searchSessionId = 0;
+let searchScrollTimer = null;
+
+let sessionID = null;
+let sessionCode = null;
+let sessionPoll = null;
+let agentLog = [];
+let agentRecorder = null;
+let agentRecording = false;
+let agentRecordingChunks = [];
+let agentAlwaysListen = false;
+let agentRecordTimer = null;
+let agentListenCooldown = false;
+let agentAudioContext = null;
+let agentSilenceCheckId = null;
+let agentSilenceStart = null;
+let agentRecordStart = null;
+let agentRecordMime = "audio/webm";
+let agentRestartLock = false;
+let agentRestartTimer = null;
+let agentWakeWatchdog = null;
+let agentExpectCommand = false;
+let agentCommandTimer = null;
+
+const HISTORY_KEY = "vista_result_history_v1";
+const HISTORY_LIMIT = 5;
+const HISTORY_MAX_IMAGES = 9;
+const HISTORY_MAX_BYTES = 4000000;
+let lastRefinedUrl = "";
+let currentCycleId = null;
+let currentCycleRefines = 0;
+
+function setStatus(msg) {
+  document.getElementById("status").textContent = msg || "";
+}
+
+let presenterActivityCount = 0;
+
+function showPresenterActivity(label) {
+  const el = document.getElementById("presenter-activity");
+  const text = document.getElementById("presenter-activity-text");
+  if (!el) return;
+  presenterActivityCount += 1;
+  if (label && text) {
+    text.textContent = label;
+  }
+  el.classList.add("visible");
+}
+
+function hidePresenterActivity() {
+  const el = document.getElementById("presenter-activity");
+  if (!el) return;
+  presenterActivityCount = Math.max(0, presenterActivityCount - 1);
+  if (presenterActivityCount === 0) {
+    el.classList.remove("visible");
+  }
+}
+
+function setGalleryActive(active) {
+  void active;
+}
+
+function updateGalleryActive() {}
+
+const ACTIVE_TIMEOUT_MS = 0;
+let activeTimer = null;
+
+function setActiveState(active) {
+  document.body.classList.toggle("is-active", Boolean(active));
+  if (active && ACTIVE_TIMEOUT_MS > 0) {
+    resetActiveTimer();
+  } else if (activeTimer) {
+    clearTimeout(activeTimer);
+    activeTimer = null;
+  }
+}
+
+function resetActiveTimer() {
+  if (ACTIVE_TIMEOUT_MS <= 0) return;
+  if (activeTimer) clearTimeout(activeTimer);
+  activeTimer = setTimeout(() => {
+    setActiveState(false);
+  }, ACTIVE_TIMEOUT_MS);
+}
+
+function registerActivity() {
+  if (!document.body.classList.contains("is-active")) {
+    setActiveState(true);
+  } else {
+    resetActiveTimer();
+  }
+}
+
+function getAgentLog() {
+  return agentLog;
+}
+
+function saveAgentLog(items) {
+  agentLog = items.slice(-20);
+}
+
+function appendAgentMessage(role, content) {
+  const log = getAgentLog();
+  log.push({ role, content, ts: Date.now() });
+  saveAgentLog(log);
+  renderAgentLog();
+}
+
+function renderAgentLog() {
+  const logEl = document.getElementById("agent-log");
+  if (!logEl) return;
+  logEl.innerHTML = "";
+  const items = getAgentLog();
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "agent-msg";
+    empty.textContent = "No messages yet.";
+    logEl.appendChild(empty);
+    return;
+  }
+  items.forEach((item) => {
+    const cleaned = sanitizeAgentReply(item.content || "");
+    if (!cleaned) return;
+    const row = document.createElement("div");
+    row.className = "agent-msg";
+    const label = document.createElement("strong");
+    label.textContent = item.role === "assistant" ? "Agent" : "You";
+    const text = document.createElement("div");
+    text.textContent = cleaned;
+    row.appendChild(label);
+    row.appendChild(text);
+    logEl.appendChild(row);
+  });
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setAgentStatus(text) {
+  const el = document.getElementById("agent-status");
+  if (el) el.textContent = text;
+}
+
+function flashWakeHeard() {
+  const el = document.getElementById("agent-heard");
+  if (!el) return;
+  el.classList.add("visible");
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => {
+    el.classList.remove("visible");
+  }, 1800);
+}
+
+function clearAgentLog() {
+  agentLog = [];
+  const logEl = document.getElementById("agent-log");
+  if (logEl) logEl.innerHTML = "";
+}
+
+function resetAgentLog() {
+  clearAgentLog();
+  renderAgentLog();
+}
+
+function initAgentVoice() {
+  const micBtn = document.getElementById("agent-mic");
+  const wakeBtn = document.getElementById("agent-wake");
+  const input = document.getElementById("agent-input");
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !micBtn || !wakeBtn || !input) {
+    if (micBtn) {
+      micBtn.disabled = true;
+      micBtn.title = "Voice input not supported.";
+    }
+    if (wakeBtn) {
+      wakeBtn.disabled = true;
+      wakeBtn.title = "Voice input not supported.";
+    }
+    return;
+  }
+
+  micBtn.addEventListener("click", () => {
+    if (agentRecording) {
+      stopAgentRecording();
+      return;
+    }
+    startAgentRecording(input, micBtn, { continuous: false });
+  });
+
+  wakeBtn.addEventListener("click", () => {
+    if (agentRecording || agentAlwaysListen) {
+      stopAgentRecording();
+      return;
+    }
+    startAgentRecording(input, micBtn, { continuous: true });
+  });
+}
+
+const WAKE_WORDS = [
+  "hey vista",
+  "hi vista",
+  "hey vesta",
+  "hi vesta",
+  "hey vasta",
+  "hi vasta",
+  "hey viste",
+  "hi viste",
+  "hey visda",
+  "hi visda"
+];
+
+function isTrivialTranscript(text) {
+  const raw = String(text || "").trim().toLowerCase();
+  if (!raw) return true;
+  if (raw.length <= 2) return true;
+  const fillers = new Set(["you", "i", "uh", "um", "嗯", "啊", "额", "呃"]);
+  return fillers.has(raw);
+}
+
+function extractWakeCommand(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return null;
+  const normalized = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  let matched = false;
+  for (const wake of WAKE_WORDS) {
+    const compact = wake.replace(/\s+/g, "");
+    if (normalized.includes(compact)) {
+      matched = true;
+      break;
+    }
+  }
+  if (!matched) return null;
+  const wakeRegex = /(hey|hi)\s*(vista|vesta|vasta|viste|visda)/i;
+  let rest = raw.replace(wakeRegex, "").trim();
+  if (!rest) {
+    rest = raw.replace(/(hey|hi)(vista|vesta|vasta|viste|visda)/i, "").trim();
+  }
+  if (!rest || isTrivialTranscript(rest)) return "";
+  return rest;
+}
+
+function getSupportedRecorderMime() {
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg"
+  ];
+  if (typeof MediaRecorder === "undefined" || !MediaRecorder.isTypeSupported) {
+    return "audio/webm";
+  }
+  for (const type of types) {
+    if (MediaRecorder.isTypeSupported(type)) return type;
+  }
+  return "audio/webm";
+}
+
+async function startAgentRecording(input, micBtn, options = {}) {
+  if (agentRecording) return;
+  if (agentListenCooldown) return;
+  if (agentRestartLock) return;
+  if (!options.preserveAlwaysListen) {
+    agentAlwaysListen = Boolean(options.continuous);
+  }
+  if (options.commandOnly) {
+    agentExpectCommand = true;
+  }
+  agentRecordingChunks = [];
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    agentRecordMime = getSupportedRecorderMime();
+    agentRecorder = new MediaRecorder(stream, { mimeType: agentRecordMime });
+    agentRecorder.ondataavailable = (event) => {
+      if (event.data && event.data.size > 0) {
+        agentRecordingChunks.push(event.data);
+      }
+    };
+    agentRecorder.onerror = () => {
+      stream.getTracks().forEach((track) => track.stop());
+      cleanupAgentAudioMonitor();
+      agentRecording = false;
+      setAgentStatus("Mic error.");
+      resumeWakeListening();
+    };
+    agentRecorder.onstop = async () => {
+      stream.getTracks().forEach((track) => track.stop());
+      cleanupAgentAudioMonitor();
+      agentRecording = false;
+      const blob = new Blob(agentRecordingChunks, { type: agentRecordMime });
+      const base64 = await blobToBase64(blob);
+      await transcribeAgentAudio(base64, blob.type, input);
+    };
+    agentRecorder.start(1000);
+    agentRecording = true;
+    micBtn.classList.add("active");
+    micBtn.textContent = agentAlwaysListen ? "Listening" : "Stop";
+    const wakeBtn = document.getElementById("agent-wake");
+    if (wakeBtn) {
+      wakeBtn.classList.toggle("active", agentAlwaysListen);
+      wakeBtn.textContent = agentAlwaysListen ? "Wake On" : "Wake";
+    }
+    setAgentStatus(agentAlwaysListen ? "Listening for 'hey vista'..." : "Recording...");
+    startAgentAudioMonitor(stream);
+    if (agentAlwaysListen) {
+      ensureWakeWatchdog();
+    }
+  } catch (err) {
+    agentRecording = false;
+    setAgentStatus("Mic error: " + err.message);
+    resumeWakeListening();
+  }
+}
+
+function stopAgentRecording() {
+  if (!agentRecorder || !agentRecording) return;
+  agentAlwaysListen = false;
+  agentExpectCommand = false;
+  if (agentRecordTimer) {
+    clearTimeout(agentRecordTimer);
+    agentRecordTimer = null;
+  }
+  if (agentRestartTimer) {
+    clearTimeout(agentRestartTimer);
+    agentRestartTimer = null;
+  }
+  if (agentCommandTimer) {
+    clearTimeout(agentCommandTimer);
+    agentCommandTimer = null;
+  }
+  clearWakeWatchdog();
+  agentRecorder.stop();
+  agentRecording = false;
+  cleanupAgentAudioMonitor();
+  const micBtn = document.getElementById("agent-mic");
+  if (micBtn) {
+    micBtn.classList.remove("active");
+    micBtn.textContent = "Mic";
+  }
+  const wakeBtn = document.getElementById("agent-wake");
+  if (wakeBtn) {
+    wakeBtn.classList.remove("active");
+    wakeBtn.textContent = "Wake";
+  }
+  setAgentStatus("Transcribing...");
+}
+
+function restoreWakeButton() {
+  const wakeBtn = document.getElementById("agent-wake");
+  if (wakeBtn) {
+    wakeBtn.classList.toggle("active", agentAlwaysListen);
+    wakeBtn.textContent = agentAlwaysListen ? "Wake On" : "Wake";
+  }
+}
+
+function startCommandCapture() {
+  if (!agentAlwaysListen) return;
+  agentExpectCommand = true;
+  setAgentStatus("Heard. Say your command...");
+  restoreWakeButton();
+  if (agentRecording || agentRestartLock) return;
+  if (agentCommandTimer) return;
+  agentCommandTimer = setTimeout(() => {
+    agentCommandTimer = null;
+    startAgentRecording(
+      document.getElementById("agent-input"),
+      document.getElementById("agent-mic"),
+      { continuous: false, preserveAlwaysListen: true, commandOnly: true }
+    );
+  }, 200);
+}
+
+function ensureWakeWatchdog() {
+  if (agentWakeWatchdog) return;
+  agentWakeWatchdog = setInterval(() => {
+    if (!agentAlwaysListen || agentRecording || agentRestartLock || agentExpectCommand) return;
+    scheduleWakeRestart();
+  }, 2000);
+}
+
+function clearWakeWatchdog() {
+  if (!agentWakeWatchdog) return;
+  clearInterval(agentWakeWatchdog);
+  agentWakeWatchdog = null;
+}
+
+function scheduleWakeRestart(input = document.getElementById("agent-input"), micBtn = document.getElementById("agent-mic")) {
+  if (!agentAlwaysListen || agentRecording || agentRestartLock || agentExpectCommand) return;
+  if (agentRestartTimer) return;
+  agentRestartLock = true;
+  agentRestartTimer = setTimeout(() => {
+    agentRestartTimer = null;
+    agentRestartLock = false;
+    agentListenCooldown = false;
+    if (agentAlwaysListen && !agentRecording) {
+      startAgentRecording(input, micBtn, { continuous: true });
+    }
+  }, 600);
+}
+
+function resumeWakeListening() {
+  if (!agentAlwaysListen) return;
+  agentExpectCommand = false;
+  if (agentCommandTimer) {
+    clearTimeout(agentCommandTimer);
+    agentCommandTimer = null;
+  }
+  setAgentStatus("Listening for 'hey vista'...");
+  restoreWakeButton();
+  ensureWakeWatchdog();
+  scheduleWakeRestart();
+}
+
+function getVoiceMaxMs() {
+  const select = document.getElementById("voice-max");
+  if (!select) return 12000;
+  const value = parseInt(select.value, 10);
+  return Number.isFinite(value) ? value : 12000;
+}
+
+function cleanupAgentAudioMonitor() {
+  if (agentSilenceCheckId) {
+    cancelAnimationFrame(agentSilenceCheckId);
+    agentSilenceCheckId = null;
+  }
+  agentSilenceStart = null;
+  agentRecordStart = null;
+  if (agentRecordTimer) {
+    clearTimeout(agentRecordTimer);
+    agentRecordTimer = null;
+  }
+  if (agentAudioContext) {
+    agentAudioContext.close();
+    agentAudioContext = null;
+  }
+}
+
+function startAgentAudioMonitor(stream) {
+  cleanupAgentAudioMonitor();
+  const maxMs = getVoiceMaxMs();
+  const minRecordMs = 900;
+  const silenceMs = 2400;
+  const threshold = 0.005;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) {
+    agentRecordTimer = setTimeout(() => {
+      if (agentRecorder && agentRecording) agentRecorder.stop();
+    }, maxMs);
+    return;
+  }
+  agentAudioContext = new AudioCtx();
+  const source = agentAudioContext.createMediaStreamSource(stream);
+  const analyser = agentAudioContext.createAnalyser();
+  analyser.fftSize = 2048;
+  source.connect(analyser);
+  const data = new Uint8Array(analyser.fftSize);
+  agentRecordStart = performance.now();
+
+  const check = () => {
+    if (!agentRecording || !agentRecorder) return;
+    analyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const v = (data[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / data.length);
+    const now = performance.now();
+    const elapsed = now - agentRecordStart;
+    if (rms < threshold) {
+      if (!agentSilenceStart) agentSilenceStart = now;
+      if (elapsed >= minRecordMs && now - agentSilenceStart >= silenceMs) {
+        agentRecorder.stop();
+        return;
+      }
+    } else {
+      agentSilenceStart = null;
+    }
+    if (now - agentRecordStart >= maxMs) {
+      agentRecorder.stop();
+      return;
+    }
+    agentSilenceCheckId = requestAnimationFrame(check);
+  };
+  agentSilenceCheckId = requestAnimationFrame(check);
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result || "";
+      const base64 = result.toString().split(",")[1] || "";
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function transcribeAgentAudio(base64, mime, input) {
+  try {
+    const res = await fetch(`${API_BASE}/api/transcribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ audio: base64, mime })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Transcription failed");
+    }
+    if (data.text) {
+      if (isTrivialTranscript(data.text)) {
+        if (agentExpectCommand) {
+          agentExpectCommand = false;
+        }
+        setAgentStatus("No speech detected.");
+        return;
+      }
+      if (agentAlwaysListen) {
+        if (agentExpectCommand) {
+          agentExpectCommand = false;
+          input.value = data.text;
+          await sendAgentMessage();
+          return;
+        }
+        const command = extractWakeCommand(data.text);
+        if (command === null) {
+          setAgentStatus("Listening for 'hey vista'...");
+          return;
+        }
+        flashWakeHeard();
+        startCommandCapture();
+        return;
+      } else {
+        input.value = data.text;
+        setAgentStatus("Ready.");
+        return;
+      }
+    } else {
+      if (agentExpectCommand) {
+        agentExpectCommand = false;
+      }
+      setAgentStatus("No speech detected.");
+    }
+  } catch (err) {
+    setAgentStatus(`Mic error: ${err.message}`);
+  } finally {
+    const micBtn = document.getElementById("agent-mic");
+    if (micBtn) {
+      micBtn.classList.remove("active");
+      micBtn.textContent = "Mic";
+    }
+    restoreWakeButton();
+    if (agentAlwaysListen && !agentExpectCommand) {
+      resumeWakeListening();
+    }
+  }
+}
+
+function buildAgentSummary() {
+  const items = getAgentLog().slice(-6);
+  return items.map((item) => `${item.role}: ${item.content}`).join(" | ");
+}
+
+function buildAgentState() {
+  const mode = document.getElementById("mode");
+  const ratio = document.getElementById("library-ratio");
+  const aiCount = document.getElementById("ai-count");
+  const aiSize = document.getElementById("ai-size");
+  const activeImg = [...document.querySelectorAll("#gallery img")].find((img) => img.classList.contains("active"));
+  return {
+    mode: mode ? mode.value : null,
+    ratio: ratio ? ratio.value : null,
+    ai_count: aiCount ? aiCount.value : null,
+    ai_ratio: aiSize ? aiSize.value : null,
+    current_image: activeImg ? activeImg.src : null
+  };
+}
+
+function readWeatherCache() {
+  try {
+    const raw = localStorage.getItem(WEATHER_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeWeatherCache(data) {
+  try {
+    localStorage.setItem(WEATHER_CACHE_KEY, JSON.stringify(data));
+  } catch (err) {
+    // ignore cache errors
+  }
+}
+
+function formatWeatherTime(dt, tz) {
+  if (!dt || tz === undefined || tz === null) return "Updated —";
+  const localMs = (dt + tz) * 1000;
+  const local = new Date(localMs);
+  const hh = String(local.getUTCHours()).padStart(2, "0");
+  const mm = String(local.getUTCMinutes()).padStart(2, "0");
+  return `Updated ${hh}:${mm}`;
+}
+
+function weatherToQuery(main = "", description = "", isNight = false, city = "") {
+  const raw = (description || main || "weather").trim() || "weather";
+  const lower = raw.toLowerCase();
+  const isRain =
+    lower.includes("rain") ||
+    lower.includes("drizzle") ||
+    lower.includes("shower") ||
+    lower.includes("storm") ||
+    lower.includes("thunder");
+  if (!isRain) {
+    return isNight ? `${raw} night` : raw;
+  }
+  if (isNight) {
+    return "rainy city night wet street reflections";
+  }
+  return "rainy street wet road rain falling";
+}
+
+function applyWeatherUI(data) {
+  const isNight = (data.icon || "").includes("n");
+  const weatherEl = document.querySelector(".weather");
+  if (weatherEl) {
+    if (isNight) {
+      weatherEl.classList.add("weather-night");
+      weatherEl.classList.remove("weather-day");
+    } else {
+      weatherEl.classList.add("weather-day");
+      weatherEl.classList.remove("weather-night");
+    }
+  }
+  const tempEl = document.getElementById("weather-temp");
+  const cityEl = document.getElementById("weather-city");
+  const descEl = document.getElementById("weather-desc");
+  const humEl = document.getElementById("weather-humidity");
+  const windEl = document.getElementById("weather-wind");
+  const timeEl = document.getElementById("weather-time");
+
+  if (tempEl && data.temp !== null && data.temp !== undefined) {
+    tempEl.textContent = `${Math.round(data.temp)}°`;
+  }
+  if (cityEl) cityEl.textContent = data.city || "Unknown location";
+  if (descEl) descEl.textContent = data.description || data.main || "—";
+  if (humEl) humEl.textContent = data.humidity !== null && data.humidity !== undefined
+    ? `Humidity ${data.humidity}%`
+    : "Humidity —";
+  if (windEl) windEl.textContent = data.wind !== null && data.wind !== undefined
+    ? `Wind ${Math.round(data.wind)} m/s`
+    : "Wind —";
+  if (timeEl) timeEl.textContent = formatWeatherTime(data.dt, data.timezone);
+}
+
+let weatherSlideTimer = null;
+let weatherImages = [];
+let weatherImageIndex = 0;
+let weatherLayerIndex = 0;
+
+function setWeatherBackground(url) {
+  const layerA = document.getElementById("weather-bg-a");
+  const layerB = document.getElementById("weather-bg-b");
+  if (!layerA || !layerB || !url) return;
+
+  const nextLayer = weatherLayerIndex === 0 ? layerB : layerA;
+  const currentLayer = weatherLayerIndex === 0 ? layerA : layerB;
+
+  nextLayer.style.backgroundImage = `url(${url})`;
+  nextLayer.classList.add("is-active");
+  currentLayer.classList.remove("is-active");
+  weatherLayerIndex = weatherLayerIndex === 0 ? 1 : 0;
+}
+
+function startWeatherSlideshow(images) {
+  if (!images || !images.length) return;
+  clearInterval(weatherSlideTimer);
+  weatherImages = images;
+  weatherImageIndex = Math.floor(Math.random() * weatherImages.length);
+  setWeatherBackground(weatherImages[weatherImageIndex]);
+  weatherSlideTimer = setInterval(() => {
+    weatherImageIndex = (weatherImageIndex + 1) % weatherImages.length;
+    setWeatherBackground(weatherImages[weatherImageIndex]);
+  }, WEATHER_ROTATE_MS);
+}
+
+async function applyWeatherBackdrop(data, cachedImages) {
+  if (cachedImages && cachedImages.length) {
+    startWeatherSlideshow(cachedImages);
+    return;
+  }
+
+  const isNight = (data.icon || "").includes("n");
+  const base = weatherToQuery(
+    data.main || "",
+    data.description || "",
+    isNight,
+    ""
+  );
+  const query = base;
+  try {
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const targetW = Math.round(window.innerWidth * pixelRatio);
+    const targetH = Math.round(window.innerHeight * pixelRatio);
+    const aspect = window.innerWidth / window.innerHeight;
+    const ratio =
+      aspect > 1.5 ? "16:9" :
+      aspect > 1.2 ? "4:3" :
+      aspect >= 1 ? "4:3" :
+      aspect > 0.75 ? "3:4" :
+      "9:16";
+    let r = await fetch(
+      `${API_BASE}/api/unsplash?q=${encodeURIComponent(query)}&ratio=${encodeURIComponent(ratio)}&w=${targetW}&h=${targetH}`
+    );
+    let res = await r.json();
+    let images = res.images || [];
+    if (!images.length) {
+      const fallbackQuery = isNight
+        ? "night clouds sky photo"
+        : "clouds sky photo";
+      r = await fetch(
+        `${API_BASE}/api/unsplash?q=${encodeURIComponent(fallbackQuery)}&ratio=${encodeURIComponent(ratio)}&w=${targetW}&h=${targetH}`
+      );
+      res = await r.json();
+      images = res.images || [];
+    }
+    if (images.length) {
+      startWeatherSlideshow(images);
+      const cached = readWeatherCache() || {};
+      cached.images = images;
+      writeWeatherCache(cached);
+    }
+  } catch (err) {
+    // ignore backdrop failures
+  }
+}
+
+async function fetchWeather(lat, lon) {
+  const r = await fetch(`${API_BASE}/api/weather?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`);
+  const data = await r.json();
+  if (!r.ok) {
+    throw new Error(data.error || "Weather failed");
+  }
+  return data;
+}
+
+async function initWeather() {
+  showPresenterActivity("Updating weather...");
+  const cached = readWeatherCache();
+  if (cached && cached.ts && Date.now() - cached.ts < WEATHER_TTL) {
+    applyWeatherUI(cached.data || {});
+    await applyWeatherBackdrop(cached.data || {}, cached.images || []);
+    hidePresenterActivity();
+    return;
+  }
+
+  if (!navigator.geolocation) {
+    applyWeatherUI({ city: "Location disabled", description: "Geolocation not supported" });
+    hidePresenterActivity();
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      try {
+        const data = await fetchWeather(pos.coords.latitude, pos.coords.longitude);
+        applyWeatherUI(data);
+        await applyWeatherBackdrop(data);
+        writeWeatherCache({ ts: Date.now(), data, images: [] });
+        hidePresenterActivity();
+      } catch (err) {
+        applyWeatherUI({ city: "Weather unavailable", description: err.message });
+        hidePresenterActivity();
+      }
+    },
+    () => {
+      applyWeatherUI({ city: "Location blocked", description: "Enable location to show weather" });
+      hidePresenterActivity();
+    },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+  );
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveHistory(history) {
+  let trimmed = history.slice(0, HISTORY_LIMIT);
+  let json = JSON.stringify(trimmed);
+  while (json.length > HISTORY_MAX_BYTES && trimmed.length > 1) {
+    trimmed.pop();
+    json = JSON.stringify(trimmed);
+  }
+  localStorage.setItem(HISTORY_KEY, json);
+  return trimmed;
+}
+
+function buildHistoryEntry(mode, keyword, urls) {
+  const kept = [];
+  let usedDataUrl = false;
+  urls.forEach((url) => {
+    if (kept.length >= HISTORY_MAX_IMAGES) return;
+    if (url.startsWith("data:image")) {
+      if (usedDataUrl) return;
+      usedDataUrl = true;
+    }
+    kept.push(url);
+  });
+  return {
+    id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
+    mode,
+    keyword,
+    urls: kept,
+    total: urls.length,
+    ts: Date.now(),
+    refines: 0
+  };
+}
+
+function addHistory(mode, keyword, urls) {
+  const history = loadHistory();
+  const entry = buildHistoryEntry(mode, keyword, urls);
+  history.unshift(entry);
+  const saved = saveHistory(history);
+  currentCycleId = entry.id;
+  currentCycleRefines = 0;
+  renderHistory(saved);
+}
+
+function updateHistoryForRefine(refinedUrl) {
+  if (!currentCycleId || !refinedUrl) return;
+  const history = loadHistory();
+  const entry = history.find((item) => item.id === currentCycleId);
+  if (!entry) return;
+  entry.refines = (entry.refines || 0) + 1;
+  entry.total = entry.total || (entry.urls ? entry.urls.length : 0);
+  const nextUrls = [refinedUrl].concat(entry.urls || []);
+  entry.urls = nextUrls.slice(0, HISTORY_MAX_IMAGES);
+  const saved = saveHistory(history);
+  currentCycleRefines = entry.refines;
+  renderHistory(saved);
+}
+
+function clearHistory() {
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory([]);
+}
+
+function formatHistoryTime(ts) {
+  try {
+    return new Date(ts).toLocaleString();
+  } catch (err) {
+    return "";
+  }
+}
+
+function renderHistory(history = loadHistory()) {
+  const grid = document.getElementById("history-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+
+  if (!history.length) {
+    const empty = document.createElement("div");
+    empty.className = "history-empty";
+    empty.textContent = "No history yet. Run a search or generate images.";
+    grid.appendChild(empty);
+    return;
+  }
+
+  history.forEach((entry) => {
+    const card = document.createElement("div");
+    card.className = "history-card";
+    card.addEventListener("click", () => restoreHistory(entry.id));
+
+    const head = document.createElement("div");
+    head.className = "history-card-head";
+
+    const keyword = document.createElement("div");
+    keyword.className = "history-keyword";
+    keyword.textContent = entry.keyword || "(no keyword)";
+
+    const meta = document.createElement("div");
+    meta.className = "history-meta";
+    const modeLabel = entry.mode || "unknown";
+    const refineCount = entry.refines ? ` · ${entry.refines} refine${entry.refines > 1 ? "s" : ""}` : "";
+    const totalText = entry.total && entry.total !== (entry.urls || []).length
+      ? `${(entry.urls || []).length}/${entry.total}`
+      : `${(entry.urls || []).length}`;
+    meta.textContent = `${modeLabel} · ${formatHistoryTime(entry.ts)} · ${totalText} images${refineCount}`;
+
+    head.appendChild(keyword);
+    head.appendChild(meta);
+
+    const footer = document.createElement("div");
+    footer.className = "history-footer";
+
+    const restore = document.createElement("button");
+    restore.className = "history-restore";
+    restore.textContent = "Restore";
+    restore.addEventListener("click", (event) => {
+      event.stopPropagation();
+      restoreHistory(entry.id);
+    });
+
+    footer.appendChild(restore);
+
+    card.appendChild(head);
+    card.appendChild(footer);
+    grid.appendChild(card);
+  });
+}
+
+
+function restoreHistory(id) {
+  const history = loadHistory();
+  const entry = history.find((item) => item.id === id);
+  if (!entry || !entry.urls || !entry.urls.length) {
+    setStatus("No images found in history.");
+    return;
+  }
+
+  stopSlideshow();
+  const searchInput = document.getElementById("search-keyword");
+  const aiPromptInput = document.getElementById("ai-prompt");
+  const nextKeyword = entry.keyword || "";
+  if (searchInput) searchInput.value = nextKeyword;
+  if (aiPromptInput) aiPromptInput.value = nextKeyword;
+  const modeSelect = document.getElementById("mode");
+  const libraryModes = new Set(["multi", "unsplash", "pexels", "pixabay"]);
+  if (entry.mode && libraryModes.has(entry.mode)) {
+    modeSelect.value = entry.mode;
+    onModeChange();
+  }
+
+  const g = document.getElementById("gallery");
+  g.innerHTML = "";
+  const sourceLabel = entry.mode === "unsplash"
+    ? "Unsplash"
+    : entry.mode === "pexels"
+      ? "Pexels"
+      : entry.mode === "flux" || entry.mode === "gpt"
+        ? "AI"
+        : undefined;
+  entry.urls.forEach((url, i) => createImg(url, entry.keyword, i === 0, sourceLabel));
+  buildCatalog(entry.urls.length);
+  setActive(0);
+  currentCycleId = entry.id || null;
+  currentCycleRefines = entry.refines || 0;
+  setStatus("Restored from history.");
+}
+
+function buildRemoteUrl(id) {
+  return `${FRONTEND_BASE}/remote.html?session=${encodeURIComponent(id)}`;
+}
+
+function updateSessionUI(url, code) {
+  const link = document.getElementById("session-link");
+  const codeEl = document.getElementById("session-code");
+  const qr = document.getElementById("session-qr");
+  if (link) {
+    link.href = url;
+    link.textContent = url;
+  }
+  if (codeEl) {
+    codeEl.textContent = code || "—";
+  }
+  if (qr) {
+    qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(url)}`;
+  }
+}
+
+async function initSession() {
+  try {
+    const stored = localStorage.getItem("vista_presenter_session");
+    if (stored) {
+      const ping = await fetch(`${API_BASE}/api/session/${encodeURIComponent(stored)}`);
+      if (ping.ok) {
+        sessionID = stored;
+        sessionCode = "—";
+        const remoteUrl = buildRemoteUrl(sessionID);
+        updateSessionUI(remoteUrl, sessionCode);
+        startCommandPolling();
+        return;
+      }
+    }
+
+    const res = await fetch(`${API_BASE}/api/session`, { method: "POST" });
+    const data = await res.json();
+    sessionID = data.session;
+    sessionCode = data.code;
+    localStorage.setItem("vista_presenter_session", sessionID);
+    const remoteUrl = buildRemoteUrl(sessionID);
+    updateSessionUI(remoteUrl, sessionCode);
+    startCommandPolling();
+  } catch (err) {
+    console.error("Session init failed:", err);
+  }
+}
+
+function startCommandPolling() {
+  if (sessionPoll) clearInterval(sessionPoll);
+  sessionPoll = setInterval(async () => {
+    if (!sessionID) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/check?session=${sessionID}`);
+      const data = await res.json();
+      if (data.command) {
+        applyRemoteCommand(data.command);
+      }
+    } catch (err) {
+      console.error("Polling error:", err);
+    }
+  }, 800);
+}
+
+function applyRemoteCommand(command) {
+  if (!command || !command.type) return;
+
+  if (command.type === "theme") {
+    const searchInput = document.getElementById("search-keyword");
+    const aiPromptInput = document.getElementById("ai-prompt");
+    const ratioSelect = document.getElementById("library-ratio");
+    const nextValue = command.keyword || "";
+    if (searchInput) searchInput.value = nextValue;
+    if (aiPromptInput) aiPromptInput.value = nextValue;
+    if (command.mode) {
+      const modeSelect = document.getElementById("mode");
+      if (modeSelect) modeSelect.value = command.mode;
+    }
+    if (command.ratio && ratioSelect) {
+      ratioSelect.value = command.ratio;
+    }
+    searchLibrary(command.keyword || nextValue, command.ratio || "");
+    return;
+  }
+
+  if (command.type === "mode") {
+    const modeSelect = document.getElementById("mode");
+    modeSelect.value = command.mode || "unsplash";
+    onModeChange();
+    return;
+  }
+
+  if (command.type === "play") {
+    startSlideshow();
+    return;
+  }
+
+  if (command.type === "pause") {
+    stopSlideshow();
+    return;
+  }
+
+  if (command.type === "next") {
+    setActive(slideIndex + 1);
+    return;
+  }
+
+  if (command.type === "prev") {
+    setActive(slideIndex - 1);
+    return;
+  }
+
+  if (command.type === "refresh") {
+    searchLibrary();
+    return;
+  }
+
+  if (command.type === "view") {
+    setViewMode(command.mode || "weather");
+    return;
+  }
+
+  if (command.type === "weather_refresh") {
+    refreshWeather();
+    return;
+  }
+
+  if (command.type === "clear") {
+    clearGallery();
+    return;
+  }
+
+  if (command.type === "refine") {
+    refineCurrent(true, command.prompt || "");
+    return;
+  }
+
+  if (command.type === "ai_generate") {
+    const aiPromptInput = document.getElementById("ai-prompt");
+    const aiCountInput = document.getElementById("ai-count");
+    const aiSizeInput = document.getElementById("ai-size");
+
+    if (aiPromptInput) {
+      aiPromptInput.value = command.keyword || aiPromptInput.value;
+    }
+    if (command.count) {
+      aiCountInput.value = command.count;
+    }
+    if (command.size && aiSizeInput) {
+      aiSizeInput.value = command.size;
+    }
+    generateAi();
+    return;
+  }
+}
+
+function clearGallery() {
+  stopSlideshow();
+  document.getElementById("gallery").innerHTML = "<p>Try searching or generating!</p>";
+  document.getElementById("catalog").innerHTML = "";
+  document.getElementById("catalog-wrapper").style.display = "none";
+  setStatus("");
+  setGalleryActive(false);
+}
+
+function addSpinner() {
+  const g = document.getElementById("gallery");
+  g.innerHTML = "";
+  const s = document.createElement("div");
+  s.className = "spinner";
+  g.appendChild(s);
+  setGalleryActive(false);
+}
+
+function removeSpinner() {
+  const s = document.querySelector("#gallery .spinner");
+  if (s) s.remove();
+}
+
+function detectImageSource(url) {
+  if (!url) return "Unknown";
+  if (url.includes("images.unsplash.com")) return "Unsplash";
+  if (url.includes("pexels.com") || url.includes("images.pexels.com")) return "Pexels";
+  if (url.includes("pixabay.com")) return "Pixabay";
+  return "AI";
+}
+
+function shuffleArray(items) {
+  const arr = items.slice();
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function ensureGallerySourceLabel() {
+  const g = document.getElementById("gallery");
+  if (!g) return null;
+  let label = document.getElementById("gallery-source");
+  if (!label) {
+    label = document.createElement("div");
+    label.id = "gallery-source";
+    label.className = "gallery-source";
+    g.appendChild(label);
+  }
+  return label;
+}
+
+function updateGallerySource() {
+  const label = ensureGallerySourceLabel();
+  if (!label) return;
+  const active = [...document.querySelectorAll("#gallery img")].find((img) => img.classList.contains("active"));
+  if (!active) {
+    label.textContent = "";
+    label.classList.remove("visible");
+    return;
+  }
+  label.textContent = active.dataset.source || detectImageSource(active.src);
+  label.classList.add("visible");
+}
+
+function createImg(src, alt, active = false, source) {
+  ensureGallerySourceLabel();
+  const img = document.createElement("img");
+  img.src = src;
+  img.alt = alt;
+  img.dataset.source = source || detectImageSource(src);
+  if (active) img.classList.add("active");
+  document.getElementById("gallery").appendChild(img);
+  updateGallerySource();
+  updateGalleryActive();
+}
+
+function getImages() {
+  return document.querySelectorAll("#gallery img");
+}
+
+function setGalleryLoader(visible, text) {
+  const el = document.getElementById("gallery-loader");
+  if (!el) return;
+  if (text) el.textContent = text;
+  el.classList.toggle("visible", visible);
+}
+
+function getLoadLimit() {
+  const select = document.getElementById("load-limit");
+  if (!select) return 40;
+  const value = parseInt(select.value, 10);
+  return Number.isFinite(value) ? value : 40;
+}
+
+function resetSearchSession(mode, keyword, ratio) {
+  searchSessionId += 1;
+  const limit = getLoadLimit();
+  const startPage = 1;
+  searchState = {
+    id: searchSessionId,
+    mode,
+    keyword,
+    ratio,
+    unsplashPage: startPage,
+    unsplashTotal: 1,
+    pexelsPage: startPage,
+    pixabayPage: startPage,
+    pixabayTotal: 1,
+    loading: false,
+    exhausted: false,
+    loaded: 0,
+    emptyStreak: 0,
+    seen: new Set(),
+    max: limit,
+    randomize: false
+  };
+}
+
+function cancelSearchSession() {
+  searchSessionId += 1;
+  searchState = null;
+  setGalleryLoader(false);
+}
+
+async function fetchUnsplashBatch(page, keyword, ratio) {
+  const r = await fetch(
+    `${API_BASE}/api/unsplash?q=${encodeURIComponent(keyword)}&page=${page}&ratio=${encodeURIComponent(ratio)}`
+  );
+  const data = await r.json();
+  if (!r.ok || data.error || data.errors) {
+    throw new Error((data.error && (data.error.message || data.error)) || data.errors || "Unsplash failed");
+  }
+  return {
+    images: data.images || [],
+    totalPages: data.totalPages || 1
+  };
+}
+
+async function fetchPexelsBatch(page, keyword, ratio) {
+  const r = await fetch(
+    `${API_BASE}/api/pexels?q=${encodeURIComponent(keyword)}&page=${page}&ratio=${encodeURIComponent(ratio)}`
+  );
+  const data = await r.json();
+  if (!r.ok || data.error) {
+    throw new Error(data.error || "Pexels failed");
+  }
+  return { images: data.images || [] };
+}
+
+async function fetchPixabayBatch(page, keyword, ratio) {
+  const r = await fetch(
+    `${API_BASE}/api/pixabay?q=${encodeURIComponent(keyword)}&page=${page}&ratio=${encodeURIComponent(ratio)}`
+  );
+  const data = await r.json();
+  if (!r.ok || data.error) {
+    throw new Error(data.error || "Pixabay failed");
+  }
+  return {
+    images: data.images || [],
+    totalPages: data.totalPages || 1
+  };
+}
+
+function appendSearchResults(urls, sourceLabel) {
+  if (!searchState) return 0;
+  let added = 0;
+  urls.forEach((url) => {
+    if (searchState.max && searchState.loaded >= searchState.max) return;
+    if (!url || searchState.seen.has(url)) return;
+    searchState.seen.add(url);
+    createImg(url, searchState.keyword, false, sourceLabel);
+    added += 1;
+    if (searchState.max && searchState.loaded + added >= searchState.max) {
+      searchState.exhausted = true;
+    }
+  });
+  searchState.loaded += added;
+  return added;
+}
+
+async function loadNextSearchBatch(isInitial = false) {
+  if (!searchState || searchState.loading || searchState.exhausted) return;
+  const activeSession = searchSessionId;
+  searchState.loading = true;
+  if (isInitial) addSpinner();
+  setGalleryLoader(true, isInitial ? "Loading images..." : "Loading more...");
+  showPresenterActivity("Searching...");
+  try {
+    let added = 0;
+    if (searchState.mode === "unsplash") {
+      const res = await fetchUnsplashBatch(searchState.unsplashPage, searchState.keyword, searchState.ratio);
+      if (activeSession !== searchSessionId) return;
+      searchState.unsplashTotal = res.totalPages || 1;
+      const items = searchState.randomize ? shuffleArray(res.images || []) : (res.images || []);
+      added += appendSearchResults(items, "Unsplash");
+      searchState.unsplashPage += 1;
+      if (searchState.unsplashPage > searchState.unsplashTotal) {
+        searchState.exhausted = true;
+      }
+    } else if (searchState.mode === "pexels") {
+      const res = await fetchPexelsBatch(searchState.pexelsPage, searchState.keyword, searchState.ratio);
+      if (activeSession !== searchSessionId) return;
+      const items = searchState.randomize ? shuffleArray(res.images || []) : (res.images || []);
+      added += appendSearchResults(items, "Pexels");
+      searchState.pexelsPage += 1;
+    } else if (searchState.mode === "pixabay") {
+      const res = await fetchPixabayBatch(searchState.pixabayPage, searchState.keyword, searchState.ratio);
+      if (activeSession !== searchSessionId) return;
+      searchState.pixabayTotal = res.totalPages || 1;
+      const items = searchState.randomize ? shuffleArray(res.images || []) : (res.images || []);
+      added += appendSearchResults(items, "Pixabay");
+      searchState.pixabayPage += 1;
+      if (searchState.pixabayPage > searchState.pixabayTotal) {
+        searchState.exhausted = true;
+      }
+    } else {
+      const [uRes, pRes, xRes] = await Promise.all([
+        fetchUnsplashBatch(searchState.unsplashPage, searchState.keyword, searchState.ratio),
+        fetchPexelsBatch(searchState.pexelsPage, searchState.keyword, searchState.ratio),
+        fetchPixabayBatch(searchState.pixabayPage, searchState.keyword, searchState.ratio)
+      ]);
+      if (activeSession !== searchSessionId) return;
+      searchState.unsplashTotal = uRes.totalPages || 1;
+      searchState.pixabayTotal = xRes.totalPages || 1;
+      const uItems = searchState.randomize ? shuffleArray(uRes.images || []) : (uRes.images || []);
+      const pItems = searchState.randomize ? shuffleArray(pRes.images || []) : (pRes.images || []);
+      const xItems = searchState.randomize ? shuffleArray(xRes.images || []) : (xRes.images || []);
+      const uAdded = appendSearchResults(uItems, "Unsplash");
+      const pAdded = appendSearchResults(pItems, "Pexels");
+      const xAdded = appendSearchResults(xItems, "Pixabay");
+      added += uAdded + pAdded + xAdded;
+      searchState.unsplashPage += 1;
+      searchState.pexelsPage += 1;
+      searchState.pixabayPage += 1;
+      if (searchState.unsplashPage > searchState.unsplashTotal &&
+          searchState.pixabayPage > searchState.pixabayTotal &&
+          added === 0) {
+        searchState.exhausted = true;
+      }
+    }
+
+    if (added === 0) {
+      searchState.emptyStreak += 1;
+      if (searchState.emptyStreak >= 2) {
+        searchState.exhausted = true;
+      }
+    } else {
+      searchState.emptyStreak = 0;
+    }
+
+    const count = getImages().length;
+    if (count) {
+      buildCatalog(count);
+      if (![...getImages()].some((img) => img.classList.contains("active"))) {
+        setActive(0);
+      }
+      setStatus(`Loaded ${count} images.`);
+    }
+  } catch (err) {
+    setStatus(`Search error: ${err.message}`);
+  } finally {
+    removeSpinner();
+    hidePresenterActivity();
+    setGalleryLoader(false);
+    if (searchState) searchState.loading = false;
+  }
+}
+
+function updateCatalogActive(i) {
+  const btns = document.querySelectorAll(".catalog-btn");
+  btns.forEach((b, idx) => {
+    b.classList.toggle("active", idx === i);
+  });
+}
+
+function setActive(i) {
+  const imgs = getImages();
+  if (!imgs.length) return;
+  imgs.forEach(im => im.classList.remove("active"));
+  const target = imgs[i % imgs.length];
+  target.classList.add("active");
+  slideIndex = i % imgs.length;
+  updateCatalogActive(slideIndex);
+  updateGallerySource();
+}
+
+function buildCatalog(count) {
+  const wrap = document.getElementById("catalog-wrapper");
+  const catalog = document.getElementById("catalog");
+  catalog.innerHTML = "";
+
+  if (!count || count <= 1) {
+    wrap.style.display = "none";
+    return;
+  }
+
+  wrap.style.display = "block";
+
+  for (let i = 0; i < count; i++) {
+    const btn = document.createElement("button");
+    btn.className = "catalog-btn";
+    btn.textContent = i + 1;
+    if (i === 0) btn.classList.add("active");
+    btn.addEventListener("click", () => {
+      stopSlideshow();
+      setActive(i);
+    });
+    catalog.appendChild(btn);
+  }
+}
+
+function startSlideshow() {
+  const imgs = getImages();
+  if (!imgs.length) return;
+  stopSlideshow();
+  slideIndex = 0;
+  setActive(0);
+  slideTimer = setInterval(() => {
+    setActive(slideIndex + 1);
+  }, slideInterval);
+  isPlaying = true;
+}
+
+function stopSlideshow() {
+  if (slideTimer) {
+    clearInterval(slideTimer);
+    slideTimer = null;
+  }
+  isPlaying = false;
+}
+
+function downloadCurrent() {
+  const imgs = getImages();
+  if (!imgs.length) return;
+
+  const active = [...imgs].find(i => i.classList.contains("active")) || imgs[0];
+  const url = active.src;
+
+  const isUnsplash = url.includes("images.unsplash.com");
+  const isPexels = url.includes("pexels.com") || url.includes("images.pexels.com");
+  const isLexica = false;
+
+  const filename =
+    (isUnsplash ? "unsplash_" :
+     isPexels   ? "pexels_"   :
+                  "ai_") + Date.now() + ".jpg";
+
+  // 强制下载第三方图库，AI 图走原生下载
+  if (isUnsplash || isPexels || isLexica) {
+    forceDownload(url, filename);
+  } else {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+}
+
+
+function toggleFullscreen() {
+  const gallery = document.getElementById("gallery");
+  if (!document.fullscreenElement &&
+      !document.webkitFullscreenElement &&
+      !document.msFullscreenElement) {
+
+    if (gallery.requestFullscreen) gallery.requestFullscreen();
+    else if (gallery.webkitRequestFullscreen) gallery.webkitRequestFullscreen();
+    else if (gallery.msRequestFullscreen) gallery.msRequestFullscreen();
+  } else {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.msExitFullscreen) document.msExitFullscreen();
+  }
+}
+
+function isGalleryFullscreen() {
+  return document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.msFullscreenElement;
+}
+
+function onModeChange() {
+  // Placeholder for history restore/remote sync.
+}
+
+function syncUnifiedMode() {
+  const modeSelect = document.getElementById("unified-mode");
+  const sourceSelect = document.getElementById("unified-source");
+  if (!modeSelect || !sourceSelect) return;
+  const isSearch = modeSelect.value === "search";
+  sourceSelect.disabled = !isSearch;
+  sourceSelect.style.display = isSearch ? "block" : "none";
+}
+
+function submitUnified() {
+  const promptInput = document.getElementById("unified-prompt");
+  const modeSelect = document.getElementById("unified-mode");
+  const ratioSelect = document.getElementById("unified-ratio");
+  if (!promptInput || !modeSelect) return;
+  const prompt = promptInput.value.trim();
+  const ratio = ratioSelect ? ratioSelect.value : "1:1";
+  if (!prompt) {
+    setStatus("Please enter a prompt.");
+    return;
+  }
+
+  if (modeSelect.value === "search") {
+    const searchInput = document.getElementById("search-keyword");
+    const mode = document.getElementById("mode");
+    const libraryRatio = document.getElementById("library-ratio");
+    if (searchInput) searchInput.value = prompt;
+    if (mode) mode.value = "unsplash";
+    if (libraryRatio) libraryRatio.value = ratio;
+    searchLibrary(prompt, ratio);
+    return;
+  }
+
+  const aiPrompt = document.getElementById("ai-prompt");
+  const aiSize = document.getElementById("ai-size");
+  const aiCount = document.getElementById("ai-count");
+  if (aiPrompt) aiPrompt.value = prompt;
+  if (aiSize) aiSize.value = ratio;
+  if (aiCount && !aiCount.value) aiCount.value = "3";
+  generateAi();
+}
+
+function initUnifiedControls() {
+  const unifiedRatio = document.getElementById("unified-ratio");
+  const unifiedPrompt = document.getElementById("unified-prompt");
+  const mode = document.getElementById("mode");
+  const libraryRatio = document.getElementById("library-ratio");
+  const searchInput = document.getElementById("search-keyword");
+  if (unifiedRatio && libraryRatio) unifiedRatio.value = libraryRatio.value;
+  if (unifiedPrompt && searchInput) unifiedPrompt.value = searchInput.value || "";
+  syncUnifiedMode();
+}
+
+async function searchLibrary(keywordOverride = "", ratioOverride = "") {
+  stopSlideshow();
+
+  const unifiedInput = document.getElementById("unified-prompt");
+  const keywordInput = document.getElementById("search-keyword");
+  const ratioSelect = document.getElementById("library-ratio");
+  const rawMode = document.getElementById("mode").value;
+  const mode = rawMode === "multi" ? "unsplash" : rawMode;
+  const unifiedValue = unifiedInput ? unifiedInput.value.trim() : "";
+  const legacyValue = keywordInput ? keywordInput.value.trim() : "";
+  const keyword = String(keywordOverride || "").trim() || unifiedValue || legacyValue;
+  const ratio = ratioOverride || (ratioSelect ? ratioSelect.value : "1:1");
+
+  if (!keyword) {
+    setStatus("Please enter a search keyword.");
+    return;
+  }
+
+  if (keywordInput && keywordInput.value.trim() !== keyword) {
+    keywordInput.value = keyword;
+  }
+  if (unifiedInput && unifiedInput.value.trim() !== keyword) {
+    unifiedInput.value = keyword;
+  }
+
+  resetSearchSession(mode, keyword, ratio);
+  clearGallery();
+  setGalleryLoader(true, "Loading images...");
+
+  try {
+    setStatus("Searching library...");
+    await loadNextSearchBatch(true);
+    const count = getImages().length;
+    if (count) {
+      addHistory(mode, keyword, [...getImages()].map((img) => img.src));
+    }
+
+  } catch (err) {
+    console.error(err);
+    setStatus("Error: " + err.message);
+  } finally {
+    setGalleryLoader(false);
+  }
+}
+
+function searchOrGenerate() {
+  return searchLibrary();
+}
+
+function promptNeedsText(prompt) {
+  const text = String(prompt || "").toLowerCase();
+  return /(?:\btext\b|\bwords?\b|\bcaption\b|\bquote\b|\bslogan\b|\btitle\b|\bheadline\b|\blogo\b|\bsign\b|\bsignage\b|\bposter\b|\blabel\b|\bbrand\b|\bwrite\b|文字|字体|字样|标语|标题|海报|招牌|水印)/i.test(text);
+}
+
+function mapOpenAiSize(aspectRatio) {
+  if (aspectRatio === "16:9") return "1536x1024";
+  if (aspectRatio === "9:16") return "1024x1536";
+  if (aspectRatio === "3:4") return "1024x1536";
+  return "1024x1024";
+}
+
+async function generateAi() {
+  stopSlideshow();
+  cancelSearchSession();
+
+  const promptInput = document.getElementById("ai-prompt");
+  const prompt = promptInput.value.trim();
+
+  if (!prompt) {
+    setStatus("Please enter a generate prompt.");
+    return;
+  }
+
+  addSpinner();
+  showPresenterActivity("Generating...");
+  const aiSize = document.getElementById("ai-size");
+  const aspectRatio = aiSize ? aiSize.value : "1:1";
+  const useOpenAi = promptNeedsText(prompt);
+  setStatus(useOpenAi ? "Generating GPT images..." : "Generating Flux images...");
+  showAILoading(prompt);
+
+  let count = parseInt(document.getElementById("ai-count").value, 10);
+  if (isNaN(count) || count < 1) count = 1;
+  if (count > 5) count = 5;
+
+  try {
+    let r;
+    if (useOpenAi) {
+      const safeCount = Math.min(count, 3);
+      r = await fetch(`${API_BASE}/api/openai_image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          count: safeCount,
+          size: mapOpenAiSize(aspectRatio)
+        })
+      });
+    } else {
+      r = await fetch(`${API_BASE}/api/replicate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          count,
+          aspect_ratio: aspectRatio
+        })
+      });
+    }
+
+    const data = await r.json();
+    removeSpinner();
+    hideAILoading();
+
+    const images = data.images || [];
+    if (!images.length) {
+      clearGallery();
+      const errMsg = (data.error && (data.error.message || data.error)) || "No images returned.";
+      const modelLabel = useOpenAi ? "GPT" : "Flux";
+      setStatus(`${modelLabel} failed: ${errMsg}`);
+      return;
+    }
+
+    const g = document.getElementById("gallery");
+    g.innerHTML = "";
+    const sourceLabel = useOpenAi ? "AI (GPT)" : "AI";
+    images.forEach((url, i) => createImg(url, prompt, i === 0, sourceLabel));
+
+    buildCatalog(images.length);
+    setStatus(`${useOpenAi ? "GPT" : "Flux"} loaded ${images.length} images.`);
+    addHistory(useOpenAi ? "gpt" : "flux", prompt, images);
+  } catch (err) {
+    console.error(err);
+    hideAILoading();
+    setStatus("Error: " + err.message);
+  } finally {
+    removeSpinner();
+    hidePresenterActivity();
+  }
+}
+
+renderHistory();
+initSession();
+initWeather();
+initViewToggle();
+initSidebarToggle();
+initUnifiedControls();
+initAgentBubble();
+initAgentVoice();
+initInfiniteSearch();
+initGalleryInteractions();
+resetAgentLog();
+updateGalleryActive();
+setInterval(refreshWeather, WEATHER_TTL);
+
+function initSearchDockDrag() {
+  const dock = document.getElementById("search-dock");
+  const bubble = document.querySelector(".search-bubble");
+  if (!dock || !bubble) return;
+
+  const POS_KEY = "vista_search_dock_pos_v1";
+  let drag = { active: false, moved: false, startX: 0, startY: 0, x: 96, y: 72 };
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function applyPosition(x, y) {
+    const maxX = window.innerWidth - dock.offsetWidth - 16;
+    const maxY = window.innerHeight - dock.offsetHeight - 16;
+    const nextX = clamp(x, 16, Math.max(16, maxX));
+    const nextY = clamp(y, 16, Math.max(16, maxY));
+    dock.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
+    drag.x = nextX;
+    drag.y = nextY;
+  }
+
+  const stored = localStorage.getItem(POS_KEY);
+  if (stored) {
+    try {
+      const pos = JSON.parse(stored);
+      if (Number.isFinite(pos.x) && Number.isFinite(pos.y)) {
+        drag.x = pos.x;
+        drag.y = pos.y;
+      }
+    } catch (err) {
+      // ignore stored position errors
+    }
+  }
+  applyPosition(drag.x, drag.y);
+
+  bubble.addEventListener("pointerdown", (e) => {
+    drag.active = true;
+    drag.moved = false;
+    drag.startX = e.clientX - drag.x;
+    drag.startY = e.clientY - drag.y;
+    dock.classList.add("dragging");
+    bubble.setPointerCapture(e.pointerId);
+  });
+
+  bubble.addEventListener("pointermove", (e) => {
+    if (!drag.active) return;
+    const nextX = e.clientX - drag.startX;
+    const nextY = e.clientY - drag.startY;
+    if (Math.abs(nextX - drag.x) > 4 || Math.abs(nextY - drag.y) > 4) {
+      drag.moved = true;
+    }
+    applyPosition(nextX, nextY);
+  });
+
+  bubble.addEventListener("pointerup", (e) => {
+    if (!drag.active) return;
+    drag.active = false;
+    bubble.releasePointerCapture(e.pointerId);
+    dock.classList.remove("dragging");
+    localStorage.setItem(POS_KEY, JSON.stringify({ x: drag.x, y: drag.y }));
+  });
+
+  window.addEventListener("resize", () => {
+    applyPosition(drag.x, drag.y);
+  });
+}
+
+initSearchDockDrag();
+
+const idleBtn = document.getElementById("btn-idle");
+if (idleBtn) {
+  idleBtn.addEventListener("click", () => setActiveState(false));
+}
+
+document.addEventListener("pointerdown", (event) => {
+  registerActivity();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    setActiveState(false);
+    return;
+  }
+  registerActivity();
+});
+
+document.addEventListener("input", registerActivity, true);
+
+document.addEventListener("keydown", (event) => {
+  if (!isGalleryFullscreen()) return;
+  if (event.key === "ArrowRight") {
+    event.preventDefault();
+    setActive(slideIndex + 1);
+  }
+  if (event.key === "ArrowLeft") {
+    event.preventDefault();
+    setActive(slideIndex - 1);
+  }
+});
+
+window.addEventListener("load", resetAgentLog);
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) resetAgentLog();
+});
+
+const speedSelect = document.getElementById("speed-select");
+const loadLimitSelect = document.getElementById("load-limit");
+const fitSelect = document.getElementById("fit-select");
+const voiceMaxSelect = document.getElementById("voice-max");
+const autoplayToggle = document.getElementById("autoplay-toggle");
+
+const LOAD_LIMIT_KEY = "vista_load_limit";
+const FIT_KEY = "vista_fit_mode";
+const VOICE_MAX_KEY = "vista_voice_max_ms";
+
+function applyFitMode(mode) {
+  const gallery = document.getElementById("gallery");
+  if (!gallery) return;
+  gallery.classList.toggle("cover", mode === "cover");
+}
+
+if (speedSelect) {
+  speedSelect.addEventListener("change", () => {
+    const value = parseInt(speedSelect.value, 10);
+    if (!Number.isNaN(value)) {
+      slideInterval = value;
+      if (isPlaying) {
+        startSlideshow();
+      }
+    }
+  });
+}
+
+if (loadLimitSelect) {
+  const savedLimit = parseInt(localStorage.getItem(LOAD_LIMIT_KEY), 10);
+  if (Number.isFinite(savedLimit)) {
+    loadLimitSelect.value = String(savedLimit);
+  }
+  loadLimitSelect.addEventListener("change", () => {
+    const value = parseInt(loadLimitSelect.value, 10);
+    if (Number.isFinite(value)) {
+      localStorage.setItem(LOAD_LIMIT_KEY, String(value));
+    }
+  });
+}
+
+if (fitSelect) {
+  const savedFit = localStorage.getItem(FIT_KEY) || "contain";
+  fitSelect.value = savedFit;
+  applyFitMode(savedFit);
+  fitSelect.addEventListener("change", () => {
+    const mode = fitSelect.value || "contain";
+    localStorage.setItem(FIT_KEY, mode);
+    applyFitMode(mode);
+  });
+}
+
+if (voiceMaxSelect) {
+  const savedVoice = parseInt(localStorage.getItem(VOICE_MAX_KEY), 10);
+  if (Number.isFinite(savedVoice)) {
+    voiceMaxSelect.value = String(savedVoice);
+  }
+  voiceMaxSelect.addEventListener("change", () => {
+    const value = parseInt(voiceMaxSelect.value, 10);
+    if (Number.isFinite(value)) {
+      localStorage.setItem(VOICE_MAX_KEY, String(value));
+    }
+  });
+}
+
+if (autoplayToggle) {
+  autoplayToggle.addEventListener("change", () => {
+    if (autoplayToggle.checked) {
+      startSlideshow();
+    } else {
+      stopSlideshow();
+    }
+  });
+}
+
+const uiReset = document.getElementById("ui-reset");
+const uiRefresh = document.getElementById("ui-refresh");
+if (uiReset) {
+  uiReset.addEventListener("click", () => {
+    localStorage.removeItem("vista_agent_pos_v1");
+    localStorage.removeItem("vista_search_dock_pos_v1");
+    localStorage.removeItem("vista_sidebar_collapsed");
+    location.reload();
+  });
+}
+if (uiRefresh) {
+  uiRefresh.addEventListener("click", () => {
+    location.reload();
+  });
+}
+
+const unifiedSubmit = document.getElementById("unified-submit");
+const unifiedPrompt = document.getElementById("unified-prompt");
+const unifiedMode = document.getElementById("unified-mode");
+const refineQuick = document.getElementById("refine-quick");
+if (unifiedSubmit) unifiedSubmit.addEventListener("click", submitUnified);
+if (unifiedPrompt) {
+  unifiedPrompt.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      submitUnified();
+    }
+  });
+}
+if (unifiedMode) unifiedMode.addEventListener("change", syncUnifiedMode);
+if (refineQuick) {
+  refineQuick.addEventListener("click", () => {
+    const promptValue = unifiedPrompt ? unifiedPrompt.value.trim() : "";
+    refineCurrent(false, promptValue);
+  });
+}
+
+function updateRefineStatus(msg) {
+  const el = document.getElementById("refine-status");
+  if (el) el.textContent = msg || "";
+}
+
+function getRefinePrompt(override) {
+  const raw = String(override || "").trim();
+  if (raw) return raw;
+  const unified = document.getElementById("unified-prompt");
+  if (unified && unified.value.trim()) return unified.value.trim();
+  const aiPrompt = document.getElementById("ai-prompt");
+  if (aiPrompt && aiPrompt.value.trim()) return aiPrompt.value.trim();
+  const searchInput = document.getElementById("search-keyword");
+  if (searchInput && searchInput.value.trim()) return searchInput.value.trim();
+  return "";
+}
+
+async function refineCurrent(skipConfirm = false, promptOverride = "") {
+  const prompt = getRefinePrompt(promptOverride);
+  if (!prompt) {
+    updateRefineStatus("Enter a refine prompt in the main field.");
+    return;
+  }
+
+  const imgs = getImages();
+  const active = [...imgs].find(i => i.classList.contains("active")) || imgs[0];
+  const inputImage = active ? active.src : "";
+  if (!inputImage) {
+    updateRefineStatus("No image selected.");
+    return;
+  }
+  if (inputImage.startsWith("data:")) {
+    updateRefineStatus("Refine supports URL images only. Use Unsplash/Pexels/Lexica/Flux outputs.");
+    return;
+  }
+
+  if (!skipConfirm) {
+    const ok = confirm("Refine will use a paid API call. Continue?");
+    if (!ok) {
+      updateRefineStatus("Refine canceled.");
+      return;
+    }
+  }
+
+  showPresenterActivity("Refining...");
+  updateRefineStatus("Refining...");
+  try {
+    const r = await fetch(`${API_BASE}/api/refine`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        input_image: inputImage
+      })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.image) {
+      updateRefineStatus(`Refine failed: ${data.error || "No image returned."}`);
+      return;
+    }
+    lastRefinedUrl = data.image;
+    updateHistoryForRefine(data.image);
+
+    const g = document.getElementById("gallery");
+    g.innerHTML = "";
+    createImg(data.image, prompt, true, "AI");
+    buildCatalog(1);
+    setActive(0);
+    updateRefineStatus("Refine complete.");
+  } catch (err) {
+    updateRefineStatus(`Refine error: ${err.message}`);
+  } finally {
+    hidePresenterActivity();
+  }
+}
+
+function downloadRefined() {
+  if (!lastRefinedUrl) {
+    updateRefineStatus("No refined image yet.");
+    return;
+  }
+  const a = document.createElement("a");
+  a.href = lastRefinedUrl;
+  a.download = `refined_${Date.now()}.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function sendAgentMessage() {
+  setActiveState(true);
+  const input = document.getElementById("agent-input");
+  const button = document.getElementById("agent-send");
+  if (!input) return;
+  const rawText = input.value.trim();
+  if (!rawText) return;
+  const text = normalizeAgentMessage(rawText);
+
+  appendAgentMessage("user", rawText);
+  input.value = "";
+  setAgentStatus("Thinking...");
+  showPresenterActivity("Agent working...");
+  if (button) button.disabled = true;
+
+  try {
+    const r = await fetch(`${API_BASE}/api/agent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: text,
+        summary: buildAgentSummary(),
+        state: buildAgentState()
+      })
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      throw new Error(data.error || "Agent failed");
+    }
+    if (Array.isArray(data.tools) && data.tools.length) {
+      data.tools.forEach((toolItem) => {
+        if (toolItem && toolItem.name && toolItem.result) {
+          applyAgentResult(toolItem.name, toolItem.result, toolItem.args || {}, text);
+        }
+      });
+
+      const replyText = data.reply || data.message || "";
+      if (replyText) {
+        appendAgentMessage("assistant", sanitizeAgentReply(replyText));
+      } else {
+        const toolNames = data.tools
+          .map((t) => (t && t.name ? t.name : ""))
+          .filter(Boolean);
+        const uniq = [...new Set(toolNames)];
+        const ack = uniq.map(buildAgentAck).join(" ");
+        appendAgentMessage("assistant", ack || "Done.");
+      }
+    } else {
+      if (data.tool && data.result) {
+        applyAgentResult(data.tool, data.result, data.tool_args || {}, text);
+      }
+      if (data.reply) {
+        appendAgentMessage("assistant", sanitizeAgentReply(data.reply));
+      } else if (data.tool) {
+        appendAgentMessage("assistant", buildAgentAck(data.tool));
+      }
+    }
+    setAgentStatus("Ready.");
+  } catch (err) {
+    appendAgentMessage("assistant", `Error: ${err.message}`);
+    setAgentStatus("Error");
+  } finally {
+    if (button) button.disabled = false;
+    hidePresenterActivity();
+    if (agentAlwaysListen) {
+      resumeWakeListening();
+    }
+  }
+}
+
+function sanitizeAgentReply(text) {
+  if (!text) return "";
+  let cleaned = text.replace(/!\[[^\]]*?\]\([^)]+?\)/g, "");
+  cleaned = cleaned.replace(/\[[^\]]*?\]\((https?:\/\/[^)]+?)\)/g, "");
+  cleaned = cleaned.replace(/https?:\/\/\S+/g, "");
+  cleaned = cleaned.replace(/\S+\/\S*(crop=|ixid=|ixlib=|fm=|fit=)\S*/gi, "");
+  cleaned = cleaned
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !/^[\d\-•]+\.?$/.test(line));
+  cleaned = cleaned.join("\n").replace(/\s{2,}/g, " ").trim();
+  return cleaned || "Got it.";
+}
+
+function buildAgentAck(tool) {
+  const t = String(tool || "");
+  if (t === "search_library") return "Search done. Gallery updated.";
+  if (t === "generate_ai") return "Generated. Gallery updated.";
+  if (t === "refine_image") return "Refine done. Gallery updated.";
+  if (t === "refresh_weather") return "Weather refreshed.";
+  if (t === "set_view") return "View updated.";
+  return "Done.";
+}
+
+function normalizeAgentMessage(text) {
+  return text.replace(/\bpiexl\b/gi, "pexels").replace(/\bpexel\b/gi, "pexels");
+}
+
+function applyAgentResult(tool, result, args, fallbackText) {
+  if (tool === "search_library") {
+    cancelSearchSession();
+    const images = result.images || [];
+    if (!images.length) {
+      setStatus("No images found.");
+      return;
+    }
+    const keyword = args.query || fallbackText || "";
+    const g = document.getElementById("gallery");
+    g.innerHTML = "";
+    images.forEach((url, i) => createImg(url, keyword, i === 0, result.source || "Unsplash"));
+    buildCatalog(images.length);
+    setStatus(`Loaded ${images.length} images.`);
+    addHistory(result.source || "unsplash", keyword, images);
+    resumeWakeListening();
+  }
+
+  if (tool === "generate_ai") {
+    cancelSearchSession();
+    const images = result.images || [];
+    if (!images.length) {
+      setStatus("No images generated.");
+      return;
+    }
+    const keyword = args.prompt || fallbackText || "";
+    const g = document.getElementById("gallery");
+    g.innerHTML = "";
+    images.forEach((url, i) => createImg(url, keyword, i === 0, "AI"));
+    buildCatalog(images.length);
+    setStatus(`Generated ${images.length} images.`);
+    addHistory("flux", keyword, images);
+    resumeWakeListening();
+  }
+
+  if (tool === "refine_image") {
+    const image = result.image || "";
+    if (!image) {
+      updateRefineStatus("No refined image.");
+      return;
+    }
+    const g = document.getElementById("gallery");
+    g.innerHTML = "";
+    createImg(image, args.prompt || "refine", true, "AI");
+    buildCatalog(1);
+    setActive(0);
+    lastRefinedUrl = image;
+    updateHistoryForRefine(image);
+    updateRefineStatus("Refine complete.");
+    resumeWakeListening();
+  }
+
+  if (tool === "set_view") {
+    setViewMode(result.view || args.view || "weather");
+  }
+
+  if (tool === "refresh_weather") {
+    refreshWeather();
+  }
+}
+
+const agentSend = document.getElementById("agent-send");
+const agentInput = document.getElementById("agent-input");
+if (agentSend) agentSend.addEventListener("click", sendAgentMessage);
+if (agentInput) {
+  agentInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendAgentMessage();
+    }
+  });
+}
+
+function setViewMode(mode) {
+  const weatherView = document.getElementById("weather-view");
+  const appView = document.getElementById("app-view");
+  const showApp = mode !== "weather";
+  if (weatherView) weatherView.classList.remove("view-hidden");
+  if (appView) appView.classList.toggle("view-hidden", !showApp);
+  localStorage.setItem("vista_view_mode", mode);
+}
+
+function refreshWeather() {
+  localStorage.removeItem(WEATHER_CACHE_KEY);
+  initWeather();
+}
+
+function setSidebarCollapsed(collapsed) {
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  localStorage.setItem("vista_sidebar_collapsed", collapsed ? "1" : "0");
+  const btn = document.getElementById("sidebar-toggle");
+  if (btn) btn.setAttribute("aria-pressed", collapsed ? "true" : "false");
+}
+
+function initSidebarToggle() {
+  const btn = document.getElementById("sidebar-toggle");
+  if (!btn) return;
+  const saved = localStorage.getItem("vista_sidebar_collapsed") === "1";
+  setSidebarCollapsed(saved);
+  btn.addEventListener("click", () => {
+    const isCollapsed = document.body.classList.contains("sidebar-collapsed");
+    setSidebarCollapsed(!isCollapsed);
+  });
+}
+
+function initViewToggle() {
+  setViewMode("app");
+}
+
+function initAgentBubble() {
+  const fab = document.getElementById("agent-fab");
+  const bubble = document.getElementById("agent-bubble");
+  if (!fab || !bubble) return;
+
+  const POS_KEY = "vista_agent_pos_v1";
+  const canHover = window.matchMedia && window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  let drag = { active: false, moved: false, startX: 0, startY: 0, x: 0, y: 0 };
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function applyPosition(x, y) {
+    const maxX = window.innerWidth - bubble.offsetWidth - 16;
+    const maxY = window.innerHeight - bubble.offsetHeight - 16;
+    const nextX = clamp(x, 16, maxX);
+    const nextY = clamp(y, 16, maxY);
+    fab.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
+    drag.x = nextX;
+    drag.y = nextY;
+  }
+
+  function snap() {
+    const maxX = window.innerWidth - bubble.offsetWidth - 16;
+    const toLeft = drag.x < window.innerWidth / 2;
+    const nextX = toLeft ? 16 : maxX;
+    applyPosition(nextX, drag.y);
+    fab.classList.toggle("left", toLeft);
+    fab.classList.toggle("right", !toLeft);
+    localStorage.setItem(POS_KEY, JSON.stringify({ x: nextX, y: drag.y }));
+  }
+
+  const stored = localStorage.getItem(POS_KEY);
+  if (stored) {
+    try {
+      const pos = JSON.parse(stored);
+      if (!Number.isFinite(pos.x) || !Number.isFinite(pos.y)) {
+        throw new Error("Invalid stored position");
+      }
+      applyPosition(pos.x, pos.y);
+      fab.classList.toggle("left", pos.x < window.innerWidth / 2);
+      fab.classList.toggle("right", pos.x >= window.innerWidth / 2);
+      const rect = fab.getBoundingClientRect();
+      const outOfView = rect.right < 0 || rect.left > window.innerWidth || rect.bottom < 0 || rect.top > window.innerHeight;
+      if (outOfView) {
+        localStorage.removeItem(POS_KEY);
+        applyPosition(0, 0);
+        snap();
+      }
+    } catch (err) {
+      applyPosition(0, 0);
+      snap();
+    }
+  } else {
+    applyPosition(0, 0);
+    snap();
+  }
+
+  bubble.addEventListener("pointerdown", (e) => {
+    drag.active = true;
+    drag.moved = false;
+    drag.startX = e.clientX - drag.x;
+    drag.startY = e.clientY - drag.y;
+    fab.classList.add("dragging");
+    bubble.setPointerCapture(e.pointerId);
+  });
+
+  bubble.addEventListener("pointermove", (e) => {
+    if (!drag.active) return;
+    const nextX = e.clientX - drag.startX;
+    const nextY = e.clientY - drag.startY;
+    if (Math.abs(nextX - drag.x) > 4 || Math.abs(nextY - drag.y) > 4) {
+      drag.moved = true;
+    }
+    applyPosition(nextX, nextY);
+  });
+
+  bubble.addEventListener("pointerup", (e) => {
+    if (!drag.active) return;
+    drag.active = false;
+    bubble.releasePointerCapture(e.pointerId);
+    fab.classList.remove("dragging");
+    snap();
+    if (!drag.moved && e.pointerType === "touch") {
+      fab.classList.toggle("open");
+    }
+  });
+
+  if (canHover) {
+    fab.addEventListener("mouseenter", () => {
+      if (!drag.active) fab.classList.add("open");
+    });
+    fab.addEventListener("mouseleave", () => {
+      if (!drag.active) fab.classList.remove("open");
+    });
+  }
+
+  window.addEventListener("resize", () => {
+    applyPosition(drag.x, drag.y);
+    snap();
+  });
+}
+
+function initInfiniteSearch() {
+  window.addEventListener("scroll", () => {
+    if (!searchState || searchState.loading || searchState.exhausted) return;
+    if (searchScrollTimer) return;
+    searchScrollTimer = setTimeout(() => {
+      searchScrollTimer = null;
+      const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
+      if (nearBottom) {
+        loadNextSearchBatch(false);
+      }
+    }, 200);
+  });
+}
+
+function initGalleryInteractions() {
+  const gallery = document.getElementById("gallery");
+  if (!gallery) return;
+  let startX = 0;
+  let startY = 0;
+  gallery.addEventListener("click", (e) => {
+    if (e.target && e.target.tagName === "IMG") {
+      toggleFullscreen();
+    }
+  });
+  gallery.addEventListener("pointerdown", (e) => {
+    startX = e.clientX;
+    startY = e.clientY;
+  });
+  gallery.addEventListener("pointerup", (e) => {
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) {
+      setActive(slideIndex + 1);
+    } else {
+      setActive(slideIndex - 1);
+    }
+  });
+}
+</script>
+
+</body>
+</html>

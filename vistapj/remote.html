@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VISTA Remote</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap");
+
+      :root {
+        --bg-1: #1c1c1e;
+        --bg-2: #0f0f11;
+        --accent: #0a84ff;
+        --accent-2: #64d2ff;
+        --card: rgba(255, 255, 255, 0.04);
+        --border: rgba(255, 255, 255, 0.06);
+        --text: #f5f5f7;
+        --muted: #9aa0a6;
+        --danger: #ff453a;
+        --success: #32d74b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+        background: radial-gradient(
+          circle at 30% 20%,
+          var(--bg-1),
+          var(--bg-2) 60%
+        );
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 620px;
+        margin: 0 auto;
+        padding: 24px 20px 48px;
+        display: grid;
+        gap: 32px;
+      }
+
+      .header {
+        display: grid;
+        gap: 10px;
+        padding: 20px;
+        border-radius: 20px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        backdrop-filter: blur(20px);
+        animation: fadeUp 0.4s ease forwards;
+      }
+
+      .title {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+      }
+
+      .status {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 16px;
+        font-size: 13px;
+        color: var(--muted);
+        align-items: center;
+      }
+
+      .status-line {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--danger);
+        box-shadow: 0 0 0 4px rgba(255, 69, 58, 0.15);
+      }
+
+      .status-dot.connected {
+        background: var(--success);
+        box-shadow: 0 0 0 4px rgba(50, 215, 75, 0.18);
+      }
+
+      .work-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .work-indicator.visible {
+        opacity: 1;
+      }
+
+      .work-spinner {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-top-color: var(--accent);
+        animation: spin 0.8s linear infinite;
+      }
+
+      .chat-card {
+        padding: 20px;
+        border-radius: 24px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        display: grid;
+        gap: 20px;
+        min-height: 70vh;
+        backdrop-filter: blur(20px);
+        animation: fadeUp 0.4s ease forwards;
+        animation-delay: 0.08s;
+      }
+
+      .remote-controls {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 6px 12px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .control-group {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .pill-button {
+        padding: 10px 20px;
+        border-radius: 14px;
+        background: transparent;
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .pill-button.primary {
+        background: var(--accent);
+        border-color: transparent;
+        color: #fff;
+        box-shadow: 0 6px 20px rgba(10, 132, 255, 0.35);
+      }
+
+      .pill-button:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .chat-log {
+        display: grid;
+        gap: 14px;
+        overflow-y: auto;
+        padding-right: 6px;
+        min-height: 220px;
+        max-height: 56vh;
+        align-content: start;
+      }
+
+      .msg {
+        max-width: 70%;
+        width: fit-content;
+        padding: 10px 14px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.06);
+        font-size: 14px;
+        line-height: 1.45;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+        align-self: start;
+      }
+
+      .msg.user {
+        justify-self: end;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .msg.agent {
+        justify-self: start;
+      }
+
+      .chat-input {
+        display: grid;
+        gap: 10px;
+      }
+
+      .chat-row {
+        display: grid;
+        grid-template-columns: auto auto 1fr auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        font-size: 14px;
+      }
+
+      .ratio-select {
+        width: 84px;
+        padding: 10px 10px;
+      }
+
+      button {
+        padding: 12px 18px;
+        border-radius: 14px;
+        border: none;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+      }
+
+      button.secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      button:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      .chat-status {
+        font-size: 12px;
+        color: var(--muted);
+        text-align: right;
+      }
+
+      .chat-heard {
+        font-size: 12px;
+        color: #22d3ee;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .chat-heard.visible {
+        opacity: 1;
+      }
+
+      .chat-status-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .chat-working {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .chat-working.visible {
+        opacity: 1;
+      }
+
+      .chat-working-dots {
+        display: inline-flex;
+        gap: 4px;
+      }
+
+      .chat-working-dots span {
+        width: 5px;
+        height: 5px;
+        border-radius: 999px;
+        background: var(--accent);
+        opacity: 0.4;
+        animation: workingPulse 1s infinite ease-in-out;
+      }
+
+      .chat-working-dots span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+
+      .chat-working-dots span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+
+      @keyframes workingPulse {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+        40% { transform: translateY(-3px); opacity: 1; }
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0); }
+        to { transform: rotate(360deg); }
+      }
+
+      .notice {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      @keyframes fadeUp {
+        from { transform: translateY(4px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+
+      @media (max-width: 560px) {
+        .remote-controls {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .chat-row {
+          grid-template-columns: 1fr;
+        }
+
+        button {
+          width: 100%;
+        }
+
+        .ratio-select {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <div class="header">
+        <div class="title">VISTA Remote</div>
+        <div class="status">
+          <span class="status-line">
+            <span class="status-dot" id="conn-dot"></span>
+            <span id="conn-text">Connecting...</span>
+          </span>
+          <span>Session: <span id="session-id">—</span></span>
+          <span class="work-indicator" id="remote-working">
+            <span class="work-spinner" aria-hidden="true"></span>
+            Working
+          </span>
+        </div>
+        <div class="notice" id="notice">Chat with the agent to control the presenter.</div>
+      </div>
+
+      <section class="chat-card">
+        <div class="chat-log" id="chat-log"></div>
+        <div class="chat-input">
+          <div class="chat-row">
+            <button class="secondary" id="chat-mic" type="button">Mic</button>
+            <button class="secondary" id="chat-wake" type="button">Wake</button>
+            <select id="chat-ratio" class="ratio-select" aria-label="Aspect ratio">
+              <option value="1:1" selected>1:1</option>
+              <option value="4:3">4:3</option>
+              <option value="16:9">16:9</option>
+              <option value="3:4">3:4</option>
+              <option value="9:16">9:16</option>
+            </select>
+            <input id="chat-input" type="text" placeholder="Ask the agent to search, generate, refine..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+            <button id="chat-send" type="button">Send</button>
+          </div>
+          <div class="chat-status-row">
+            <div class="chat-working" id="chat-working">
+              <div class="chat-working-dots" aria-hidden="true">
+                <span></span><span></span><span></span>
+              </div>
+              Working...
+            </div>
+            <div class="chat-heard" id="chat-heard">Heard: hey vista</div>
+            <div class="chat-status" id="chat-status">Ready.</div>
+          </div>
+        </div>
+        <div class="remote-controls">
+          <div class="control-group">
+            <button class="pill-button" id="remote-prev" type="button">Prev</button>
+            <button class="pill-button primary" id="remote-play" type="button">Play</button>
+            <button class="pill-button" id="remote-next" type="button">Next</button>
+          </div>
+          <div class="control-group">
+            <button class="pill-button secondary" id="remote-view-weather" type="button">Weather</button>
+            <button class="pill-button secondary" id="remote-view-gallery" type="button">Gallery</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const DEFAULT_API_BASE = "https://vista-backend-1-6r3t.onrender.com";
+      const params = new URLSearchParams(window.location.search);
+      const sanitizeApiBase = (value) => {
+        const raw = String(value || "").trim();
+        if (!raw) return "";
+        if (!/^https?:\/\//i.test(raw)) return "";
+        if (/github\.io|netlify\.app/i.test(raw)) return "";
+        if (raw.includes(window.location.host)) return "";
+        return raw.replace(/\/+$/, "");
+      };
+      const apiFromUrl = sanitizeApiBase(params.get("apiBase"));
+      if (apiFromUrl) {
+        localStorage.setItem("vista_api_base", apiFromUrl);
+      }
+      const storedApi = sanitizeApiBase(localStorage.getItem("vista_api_base"));
+      const API_BASE = apiFromUrl || storedApi || DEFAULT_API_BASE;
+
+      const sessionIdEl = document.getElementById("session-id");
+      const connDot = document.getElementById("conn-dot");
+      const connText = document.getElementById("conn-text");
+      const notice = document.getElementById("notice");
+      const chatLog = document.getElementById("chat-log");
+      const chatInput = document.getElementById("chat-input");
+      const chatSend = document.getElementById("chat-send");
+      const chatMic = document.getElementById("chat-mic");
+      const chatWake = document.getElementById("chat-wake");
+      const chatRatio = document.getElementById("chat-ratio");
+      const chatWorking = document.getElementById("chat-working");
+      const chatHeard = document.getElementById("chat-heard");
+      const chatStatus = document.getElementById("chat-status");
+      const remoteWorking = document.getElementById("remote-working");
+      const remotePlay = document.getElementById("remote-play");
+      const remotePrev = document.getElementById("remote-prev");
+      const remoteNext = document.getElementById("remote-next");
+      const remoteWeather = document.getElementById("remote-view-weather");
+      const remoteGallery = document.getElementById("remote-view-gallery");
+
+      let sessionId = null;
+      let messages = [];
+      let recorder = null;
+      let recording = false;
+      let recordingChunks = [];
+      let wakeAlwaysListen = false;
+      let wakeExpectCommand = false;
+      let wakeRecordTimer = null;
+      let wakeListenCooldown = false;
+      let workingCount = 0;
+
+      function showRemoteWorking() {
+        if (!remoteWorking) return;
+        workingCount += 1;
+        remoteWorking.classList.add("visible");
+      }
+
+      function hideRemoteWorking() {
+        if (!remoteWorking) return;
+        workingCount = Math.max(0, workingCount - 1);
+        if (workingCount === 0) {
+          remoteWorking.classList.remove("visible");
+        }
+      }
+
+      function setConnection(ok, text) {
+        if (connText) connText.textContent = text;
+        if (connDot) connDot.classList.toggle("connected", ok);
+      }
+
+      function setStatus(text) {
+        chatStatus.textContent = text;
+      }
+
+      const WAKE_WORDS = [
+        "hey vista",
+        "hi vista",
+        "hey vesta",
+        "hi vesta",
+        "hey vasta",
+        "hi vasta",
+        "hey viste",
+        "hi viste",
+        "hey visda",
+        "hi visda"
+      ];
+
+      function isTrivialTranscript(text) {
+        const raw = String(text || "").trim().toLowerCase();
+        if (!raw) return true;
+        if (raw.length <= 2) return true;
+        const fillers = new Set(["you", "i", "uh", "um", "嗯", "啊", "额", "呃"]);
+        return fillers.has(raw);
+      }
+
+      function extractWakeCommand(text) {
+        const raw = String(text || "").trim();
+        if (!raw) return null;
+        const normalized = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+        let matched = false;
+        for (const wake of WAKE_WORDS) {
+          const compact = wake.replace(/\s+/g, "");
+          if (normalized.includes(compact)) {
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) return null;
+        const wakeRegex = /(hey|hi)\s*(vista|vesta|vasta|viste|visda)/i;
+        let rest = raw.replace(wakeRegex, "").trim();
+        if (!rest) {
+          rest = raw.replace(/(hey|hi)(vista|vesta|vasta|viste|visda)/i, "").trim();
+        }
+        if (!rest || isTrivialTranscript(rest)) return "";
+        return rest;
+      }
+
+      function flashWakeHeard() {
+        if (!chatHeard) return;
+        chatHeard.classList.add("visible");
+        clearTimeout(chatHeard._timer);
+        chatHeard._timer = setTimeout(() => {
+          chatHeard.classList.remove("visible");
+        }, 1800);
+      }
+
+      function setViewButtons(active) {
+        if (!remoteWeather || !remoteGallery) return;
+        const isWeather = active === "weather";
+        remoteWeather.classList.toggle("secondary", !isWeather);
+        remoteGallery.classList.toggle("secondary", isWeather);
+      }
+
+      function sanitize(text) {
+        if (!text) return "";
+        let cleaned = text.replace(/!\[[^\]]*?\]\([^)]+?\)/g, "");
+        cleaned = cleaned.replace(/\[[^\]]*?\]\((https?:\/\/[^)]+?)\)/g, "");
+        cleaned = cleaned.replace(/https?:\/\/\S+/g, "");
+        cleaned = cleaned.replace(/\S+\/\S*(crop=|ixid=|ixlib=|fm=|fit=)\S*/gi, "");
+        cleaned = cleaned
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line && !/^[\d\-•]+\.?$/.test(line));
+        cleaned = cleaned.join("\n").replace(/\s{2,}/g, " ").trim();
+        return cleaned || "Got it.";
+      }
+
+      function appendMessage(role, text) {
+        const cleaned = sanitize(text || "");
+        if (!cleaned) return;
+        messages.push({ role, content: cleaned });
+        const bubble = document.createElement("div");
+        bubble.className = `msg ${role === "user" ? "user" : "agent"}`;
+        bubble.textContent = cleaned;
+        chatLog.appendChild(bubble);
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+
+      function buildSummary() {
+        return messages.slice(-6).map((item) => `${item.role}: ${item.content}`).join(" | ");
+      }
+
+      async function safeJson(res) {
+        const text = await res.text();
+        try {
+          return { data: JSON.parse(text), raw: text };
+        } catch (err) {
+          return { data: null, raw: text };
+        }
+      }
+
+      async function sendCommand(type, payload = {}) {
+        if (!sessionId) {
+          setStatus("No session. Scan the QR code on the presenter.");
+          return;
+        }
+        try {
+          showRemoteWorking();
+          const res = await fetch(`${API_BASE}/api/cmd`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              session: sessionId,
+              command: { type, ...payload }
+            })
+          });
+          const { data } = await safeJson(res);
+          if (!data) {
+            setConnection(false, "Disconnected");
+            setStatus("Bad API response");
+            return;
+          }
+          if (!res.ok) {
+            setConnection(false, "Disconnected");
+            setStatus(data.error || "Send failed");
+            return;
+          }
+          setConnection(true, "Connected");
+          setStatus("Sent ✓");
+        } catch (err) {
+          setConnection(false, "Reconnecting...");
+          setStatus("Network error");
+        } finally {
+          hideRemoteWorking();
+        }
+      }
+
+      function dispatchTool(tool, args) {
+        if (tool === "search_library") {
+          sendCommand("theme", {
+            keyword: args.query || "",
+            mode: args.source || "unsplash",
+            ratio: args.ratio || "1:1"
+          });
+          return;
+        }
+        if (tool === "generate_ai") {
+          sendCommand("ai_generate", {
+            keyword: args.prompt || "",
+            mode: "flux",
+            count: args.count || 1,
+            size: args.aspect_ratio || "1:1"
+          });
+          return;
+        }
+        if (tool === "refine_image") {
+          sendCommand("refine", { prompt: args.prompt || "" });
+          return;
+        }
+        if (tool === "set_view") {
+          const nextView = args.view || "weather";
+          const presenterView = nextView === "gallery" ? "app" : nextView;
+          sendCommand("view", { mode: presenterView });
+          setViewButtons(nextView);
+          return;
+        }
+        if (tool === "refresh_weather") {
+          sendCommand("weather_refresh");
+          return;
+        }
+      }
+
+      async function sendChat() {
+        const raw = chatInput.value.trim();
+        if (!raw) return;
+        chatInput.value = "";
+        appendMessage("user", raw);
+        setStatus("Thinking...");
+        chatSend.disabled = true;
+        if (chatWorking) chatWorking.classList.add("visible");
+        showRemoteWorking();
+
+        try {
+          const res = await fetch(`${API_BASE}/api/agent`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: raw,
+              summary: buildSummary(),
+              state: {
+                remote: true,
+                preferred_ratio: chatRatio ? chatRatio.value : "1:1"
+              }
+            })
+          });
+          const { data } = await safeJson(res);
+          if (!data) {
+            throw new Error("Bad API response");
+          }
+          if (!res.ok) {
+            throw new Error(data.error || "Agent failed");
+          }
+
+          if (Array.isArray(data.tools) && data.tools.length) {
+            data.tools.forEach((toolItem) => {
+              dispatchTool(toolItem.name, toolItem.args || {});
+            });
+            appendMessage("assistant", "Done. Presenter updated.");
+          } else if (data.tool) {
+            dispatchTool(data.tool, data.tool_args || {});
+            appendMessage("assistant", "Done. Presenter updated.");
+          } else if (data.reply) {
+            appendMessage("assistant", data.reply);
+          }
+          setStatus("Ready.");
+        } catch (err) {
+          appendMessage("assistant", `Error: ${err.message}`);
+          setStatus("Error");
+        } finally {
+          chatSend.disabled = false;
+          if (chatWorking) chatWorking.classList.remove("visible");
+          hideRemoteWorking();
+        }
+      }
+
+      async function startRecording(options = {}) {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          chatMic.disabled = true;
+          chatMic.title = "Voice input not supported.";
+          if (chatWake) {
+            chatWake.disabled = true;
+            chatWake.title = "Voice input not supported.";
+          }
+          return;
+        }
+        if (recording || wakeListenCooldown) return;
+        wakeAlwaysListen = Boolean(options.continuous);
+        if (wakeAlwaysListen) {
+          wakeExpectCommand = false;
+        }
+        recordingChunks = [];
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          recorder = new MediaRecorder(stream);
+          recorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+              recordingChunks.push(event.data);
+            }
+          };
+          recorder.onstop = async () => {
+            stream.getTracks().forEach((track) => track.stop());
+            recording = false;
+            if (wakeRecordTimer) {
+              clearTimeout(wakeRecordTimer);
+              wakeRecordTimer = null;
+            }
+            const blob = new Blob(recordingChunks, { type: recorder.mimeType || "audio/webm" });
+            const base64 = await blobToBase64(blob);
+            await transcribeAudio(base64, blob.type);
+            if (!wakeAlwaysListen) {
+              chatMic.classList.remove("active");
+              chatMic.textContent = "Mic";
+              if (chatWake) {
+                chatWake.classList.remove("active");
+                chatWake.textContent = "Wake";
+              }
+            }
+            if (wakeAlwaysListen && !recording) {
+              wakeListenCooldown = true;
+              setTimeout(() => {
+                wakeListenCooldown = false;
+                startRecording({ continuous: true });
+              }, 300);
+            }
+          };
+          recorder.start();
+          recording = true;
+          chatMic.classList.add("active");
+          chatMic.textContent = wakeAlwaysListen ? "Listening" : "Stop";
+          if (chatWake) {
+            chatWake.classList.toggle("active", wakeAlwaysListen);
+            chatWake.textContent = wakeAlwaysListen ? "Wake On" : "Wake";
+          }
+          setStatus(wakeAlwaysListen ? "Listening for 'hey vista'..." : "Recording...");
+          wakeRecordTimer = setTimeout(() => {
+            if (recorder && recording) recorder.stop();
+          }, 12000);
+        } catch (err) {
+          setStatus("Mic error.");
+        }
+      }
+
+      if (remotePlay) {
+        remotePlay.addEventListener("click", () => {
+          sendCommand("play");
+        });
+      }
+
+      if (remotePrev) {
+        remotePrev.addEventListener("click", () => {
+          sendCommand("prev");
+        });
+      }
+
+      if (remoteNext) {
+        remoteNext.addEventListener("click", () => {
+          sendCommand("next");
+        });
+      }
+
+      if (remoteWeather) {
+        remoteWeather.addEventListener("click", () => {
+          sendCommand("view", { mode: "weather" });
+          setViewButtons("weather");
+        });
+      }
+
+      if (remoteGallery) {
+        remoteGallery.addEventListener("click", () => {
+          sendCommand("view", { mode: "app" });
+          setViewButtons("gallery");
+        });
+      }
+
+      setViewButtons("weather");
+
+      function stopRecording() {
+        if (!recorder || !recording) return;
+        wakeAlwaysListen = false;
+        wakeExpectCommand = false;
+        if (wakeRecordTimer) {
+          clearTimeout(wakeRecordTimer);
+          wakeRecordTimer = null;
+        }
+        wakeListenCooldown = false;
+        recorder.stop();
+        recording = false;
+        chatMic.classList.remove("active");
+        chatMic.textContent = "Mic";
+        if (chatWake) {
+          chatWake.classList.remove("active");
+          chatWake.textContent = "Wake";
+        }
+        setStatus("Transcribing...");
+      }
+
+      function blobToBase64(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result || "";
+            const base64 = result.toString().split(",")[1] || "";
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      async function transcribeAudio(base64, mime) {
+        try {
+          showRemoteWorking();
+          const res = await fetch(`${API_BASE}/api/transcribe`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ audio: base64, mime })
+          });
+          const { data } = await safeJson(res);
+          if (!data) {
+            throw new Error("Bad API response");
+          }
+          if (!res.ok) {
+            throw new Error(data.error || "Transcription failed");
+          }
+          if (data.text) {
+            if (isTrivialTranscript(data.text)) {
+              setStatus("No speech detected.");
+              return;
+            }
+            if (wakeAlwaysListen) {
+              if (wakeExpectCommand) {
+                wakeExpectCommand = false;
+                chatInput.value = data.text;
+                await sendChat();
+                return;
+              }
+              const command = extractWakeCommand(data.text);
+              if (command === null) {
+                setStatus("Listening for 'hey vista'...");
+                return;
+              }
+              flashWakeHeard();
+              if (!command) {
+                wakeExpectCommand = true;
+                setStatus("Heard. Say your command...");
+                return;
+              }
+              chatInput.value = command;
+              await sendChat();
+            } else {
+              chatInput.value = data.text;
+              await sendChat();
+            }
+          } else {
+            setStatus("No speech detected.");
+          }
+        } catch (err) {
+          setStatus(`Mic error: ${err.message}`);
+        } finally {
+          hideRemoteWorking();
+        }
+      }
+
+      function initSession() {
+        const params = new URLSearchParams(window.location.search);
+        const fromUrl = params.get("session");
+        const stored = localStorage.getItem("vista_session_id");
+        sessionId = fromUrl || stored || "";
+        if (sessionId) {
+          localStorage.setItem("vista_session_id", sessionId);
+          sessionIdEl.textContent = sessionId;
+          setConnection(true, "Connected");
+          notice.textContent = "Ready to control the presenter.";
+        } else {
+          sessionIdEl.textContent = "—";
+          setConnection(false, "No session");
+          notice.textContent = "Scan the QR code on the presenter screen.";
+        }
+      }
+
+      chatSend.addEventListener("click", sendChat);
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendChat();
+        }
+      });
+      chatMic.addEventListener("click", () => {
+        if (recording) {
+          stopRecording();
+        } else {
+          startRecording({ continuous: false });
+        }
+      });
+      if (chatWake) {
+        chatWake.addEventListener("click", () => {
+          if (recording || wakeAlwaysListen) {
+            stopRecording();
+          } else {
+            startRecording({ continuous: true });
+          }
+        });
+      }
+
+      initSession();
+    </script>
+  </body>
+</html>
