@@ -124,8 +124,6 @@ async def search_pixabay(
     random: bool = False,
     ratio: str = "",
 ) -> dict:
-    import random as rand
-
     if not settings.pixabay_key:
         raise ValueError("Missing PIXABAY_KEY")
 
