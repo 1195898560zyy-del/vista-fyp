@@ -2961,6 +2961,12 @@ function startCommandPolling() {
     if (!sessionID) return;
     try {
       const res = await fetch(`${API_BASE}/api/check?session=${sessionID}`);
+      if (res.status === 404) {
+        localStorage.removeItem("vista_presenter_session");
+        sessionID = null;
+        await initSession();
+        return;
+      }
       const data = await res.json();
       if (data.command) {
         applyRemoteCommand(data.command);
@@ -3281,17 +3287,20 @@ async function loadNextSearchBatch(isInitial = false) {
         searchState.exhausted = true;
       }
     } else {
-      const [uRes, pRes, xRes] = await Promise.all([
+      const [uRes, pRes, xRes] = await Promise.allSettled([
         fetchUnsplashBatch(searchState.unsplashPage, searchState.keyword, searchState.ratio),
         fetchPexelsBatch(searchState.pexelsPage, searchState.keyword, searchState.ratio),
         fetchPixabayBatch(searchState.pixabayPage, searchState.keyword, searchState.ratio)
       ]);
       if (activeSession !== searchSessionId) return;
-      searchState.unsplashTotal = uRes.totalPages || 1;
-      searchState.pixabayTotal = xRes.totalPages || 1;
-      const uItems = searchState.randomize ? shuffleArray(uRes.images || []) : (uRes.images || []);
-      const pItems = searchState.randomize ? shuffleArray(pRes.images || []) : (pRes.images || []);
-      const xItems = searchState.randomize ? shuffleArray(xRes.images || []) : (xRes.images || []);
+      const uResVal = uRes.status === "fulfilled" ? uRes.value : { images: [], totalPages: 1 };
+      const pResVal = pRes.status === "fulfilled" ? pRes.value : { images: [] };
+      const xResVal = xRes.status === "fulfilled" ? xRes.value : { images: [], totalPages: 1 };
+      searchState.unsplashTotal = uResVal.totalPages || 1;
+      searchState.pixabayTotal = xResVal.totalPages || 1;
+      const uItems = searchState.randomize ? shuffleArray(uResVal.images || []) : (uResVal.images || []);
+      const pItems = searchState.randomize ? shuffleArray(pResVal.images || []) : (pResVal.images || []);
+      const xItems = searchState.randomize ? shuffleArray(xResVal.images || []) : (xResVal.images || []);
       const uAdded = appendSearchResults(uItems, "Unsplash");
       const pAdded = appendSearchResults(pItems, "Pexels");
       const xAdded = appendSearchResults(xItems, "Pixabay");
@@ -3511,7 +3520,7 @@ async function searchLibrary(keywordOverride = "", ratioOverride = "") {
   const keywordInput = document.getElementById("search-keyword");
   const ratioSelect = document.getElementById("library-ratio");
   const rawMode = document.getElementById("mode").value;
-  const mode = rawMode === "multi" ? "unsplash" : rawMode;
+  const mode = rawMode;
   const unifiedValue = unifiedInput ? unifiedInput.value.trim() : "";
   const legacyValue = keywordInput ? keywordInput.value.trim() : "";
   const keyword = String(keywordOverride || "").trim() || unifiedValue || legacyValue;
